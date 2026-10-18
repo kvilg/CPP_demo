@@ -37,10 +37,10 @@ int main(int argc, char *argv[])
 
     QTcpSocket *client = server.nextPendingConnection();
     qInfo("Клиент подключился. Жду сообщения...");
-    server.
+
 
     while (true) {
-
+        
         const QByteArray out = QByteArray::number(std::rand() % 50) + "\n";
         if (client->state() == QAbstractSocket::ConnectedState) {
             client->write(out);
