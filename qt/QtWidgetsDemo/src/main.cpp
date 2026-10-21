@@ -18,6 +18,36 @@
 
 QT_USE_NAMESPACE
 
+// --- упражнение: вынести окно в отдельный класс ---
+//
+// Всё, что написано ниже в main, должно переехать в
+// MainWindow : public QMainWindow — в новые src/MainWindow.h и
+// src/MainWindow.cpp:
+//
+//   - виджеты host, port, btn, log, plot, colorBtn и сокет s — в поля;
+//   - сборку layout'ов — в конструктор;
+//   - тела лямбд из QObject::connect — в приватные слоты;
+//   - curveColor — в поле;
+//   - resize(800, 500) — в конструктор, размер окна это дело окна.
+//
+// Здесь должно остаться только это:
+//
+//     int main(int argc, char* argv[]) {
+//         QApplication app(argc, argv);
+//         MainWindow w;
+//         w.show();
+//         return app.exec();
+//     }
+//
+// В объявлении класса нужен Q_OBJECT, иначе слотов не будет; AUTOMOC
+// для этого уже включён в qt/CMakeLists.txt. Новый .cpp дописать в
+// qt_add_executable. Пример такого класса лежит рядом — RealTimePlot.
+//
+// Пока не вынесено, помни: лямбды ниже захватывают [&], то есть ссылки
+// на локальные переменные main. Держится это только на том, что main не
+// выходит, пока крутится app.exec(). Вынесешь кусок в функцию, не сделав
+// его полем класса, — ссылки станут висячими.
+
 int main(int argc, char* argv[]) {
     qtlog::install();
 
