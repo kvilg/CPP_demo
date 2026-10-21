@@ -1,0 +1,130 @@
+# Собрано из шаблонов github/gitignore: C++, CMake, Qt,
+# Global/JetBrains, Global/VisualStudioCode, Global/Windows.
+
+# --- каталоги сборки ---
+build/
+Build/
+build-*/
+cmake-build-*/
+install/
+out/
+
+# --- CMake ---
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+cmake_install.cmake
+CTestTestfile.cmake
+CMakeLists.txt.user*
+CMakeUserPresets.json
+install_manifest.txt
+compile_commands.json
+Makefile*
+_deps/
+Testing/
+
+# --- объектные файлы, библиотеки, бинарники ---
+*.o
+*.obj
+*.slo
+*.lo
+*.a
+*.la
+*.lai
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# --- предкомпилированные заголовки и отладочная информация ---
+*.gch
+*.pch
+*.ipch
+*.pdb
+*.ilk
+*.d
+*.dwo
+
+# --- зависимости ---
+vcpkg_installed/
+
+# --- Qt ---
+.qmake.cache
+.qmake.stash
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+*_qmlcache.qrc
+*.qm
+*.prl
+*.qmlls.ini
+object_script.*.Release
+object_script.*.Debug
+*_plugin_import.cpp
+target_wrapper.*
+
+# --- Qt Creator ---
+*.autosave
+*creator.user*
+*.qmlproject.user
+*.qmlproject.user.*
+.qtcreator/
+
+# --- Visual Studio ---
+.vs/
+*.sdf
+*.opensdf
+*.suo
+*.user
+*.aps
+*.VC.db
+*.VC.opendb
+
+# --- JetBrains (CLion) ---
+.idea/
+.idea_modules/
+*.iws
+
+# --- Visual Studio Code ---
+# Шаблон github/gitignore оставляет settings.json/launch.json и т.п.
+# отслеживаемыми; здесь игнорируем целиком — конфиг локальный,
+# с абсолютными путями конкретной машины.
+.vscode/
+*.vsix
+
+# --- кэш ---
+.cache/
+
+# --- Windows ---
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.stackdump
+*.lnk
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# --- прочее ---
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store

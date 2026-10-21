@@ -1,0 +1,44 @@
+# Единый кодстайл для всех проектов репозитория.
+# Применить: clang-format -i <файлы>  (или "Format Document" в IDE)
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+# --- отступы ---
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+# public:/private: вплотную к class, а не с отступом
+AccessModifierOffset: -4
+IndentCaseLabels: true
+ColumnLimit: 100
+
+# --- звёздочка и амперсанд липнут к типу: Node* m_next, const T& value ---
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+QualifierAlignment: Left
+
+# --- скобки ---
+BreakBeforeBraces: Attach
+# if (x) без скобок дописываются автоматически
+InsertBraces: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+
+# --- пробелы ---
+# if (...), while (...) — но func(...) без пробела
+SpaceBeforeParens: ControlStatements
+SpaceAfterTemplateKeyword: true
+
+# --- шаблоны ---
+AlwaysBreakTemplateDeclarations: Yes
+
+# --- #include ---
+# блоки, разделённые пустой строкой, не склеиваются и не переставляются;
+# сортировка только внутри блока
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive
