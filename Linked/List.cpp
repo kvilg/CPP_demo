@@ -181,6 +181,12 @@ List<T>::List(std::initializer_list<T> values) {
 }
 
 template <ListElement T>
+List<T>& List<T>::operator=(std::initializer_list<T> values) {
+    (void)values;
+    throw std::logic_error("List::operator=(initializer_list) не реализован");
+}
+
+template <ListElement T>
 bool List<T>::isEmpty() const {
     throw std::logic_error("List::isEmpty не реализован");
 }
@@ -1406,4 +1412,100 @@ TEST_CASE("exercise: operator-> у итератора") {
 
     // у int нет полей, поэтому зовём стрелку явно: она отдаёт T*
     CHECK(*it.operator->() == 7);
+}
+
+TEST_CASE("exercise: присваивание списка инициализации") {
+    List<int> list;
+    list.addLast(9);
+    list.addLast(9);
+
+    list = {1, 2, 3};
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+    CHECK(list.getValue(2) == 3);
+
+    // хвост на месте, список можно дополнять
+    list.addLast(4);
+    CHECK(list.getValue(3) == 4);
+}
+
+TEST_CASE("exercise: присваивание пустого списка инициализации очищает") {
+    List<int> list;
+    list.addLast(1);
+
+    list = {};
+
+    CHECK(list.getSize() == 0);
+}
+
+TEST_CASE("exercise: removeValue без совпадений и на пустом — не ошибка") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+
+    list.removeValue(99);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+
+    List<int> empty;
+    empty.removeValue(1);
+    CHECK(empty.getSize() == 0);
+}
+
+TEST_CASE("exercise: clear на пустом списке — не ошибка") {
+    List<int> empty;
+
+    empty.clear();
+    CHECK(empty.getSize() == 0);
+    CHECK(empty.isEmpty());
+
+    // и после clear список по-прежнему рабочий
+    empty.addLast(1);
+    REQUIRE(empty.getSize() == 1);
+    CHECK_FALSE(empty.isEmpty());
+}
+
+TEST_CASE("exercise: свободный swap находится без квалификации") {
+    List<int> a;
+    a.addLast(1);
+
+    List<int> b;
+    b.addLast(2);
+    b.addLast(3);
+
+    // Идиом std::swap two-step: using даёт запасной вариант, а
+    // безквалификационный вызов — шанс ADL выбрать наш.
+    using std::swap;
+    swap(a, b);
+
+    REQUIRE(a.getSize() == 2);
+    CHECK(a.getValue(0) == 2);
+    CHECK(a.getValue(1) == 3);
+
+    REQUIRE(b.getSize() == 1);
+    CHECK(b.getValue(0) == 1);
+}
+
+TEST_CASE("exercise: свободный swap с пустым списком") {
+    List<int> filled;
+    filled.addLast(1);
+
+    List<int> empty;
+
+    using std::swap;
+    swap(filled, empty);
+
+    CHECK(filled.getSize() == 0);
+    REQUIRE(empty.getSize() == 1);
+    CHECK(empty.getValue(0) == 1);
+
+    // оба списка после обмена пригодны для вставки
+    filled.addLast(5);
+    empty.addLast(6);
+    CHECK(filled.getValue(0) == 5);
+    CHECK(empty.getValue(1) == 6);
 }
