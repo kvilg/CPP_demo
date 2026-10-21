@@ -1,0 +1,38 @@
+# Проверки идиом: то, что -Wall -Wextra не ловит, потому что это не ошибки
+# компиляции, а стиль и подход. Для учебного проекта это основная польза —
+# такие замечания иначе приходится писать руками на каждом ревью.
+#
+# Разовый прогон по файлу:
+#   clang-tidy Linked/main.cpp -- -std=c++20 -ILinked
+#
+# На всю сборку (нужен compile_commands.json):
+#   cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#   clang-tidy -p build Linked/List.cpp
+#
+# Или встроить в сборку, тогда tidy будет работать на каждом файле:
+#   cmake -S . -B build -DCMAKE_CXX_CLANG_TIDY=clang-tidy
+---
+Checks: >
+  -*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-identifier-naming,
+  -readability-function-cognitive-complexity,
+  -modernize-use-trailing-return-type
+
+# Замечания tidy — не ошибки, в отличие от предупреждений компилятора:
+# они про «так лучше», а не про «так неправильно», и сборку ломать не должны.
+WarningsAsErrors: ''
+
+# Только наши заголовки. Без фильтра tidy полез бы в doctest.h и заголовки
+# Qt и завалил вывод замечаниями к чужому коду.
+HeaderFilterRegex: '.*(List|RealTimePlot)\.h$'
+
+# Предлагаемые правки форматировать по нашему .clang-format
+FormatStyle: file
