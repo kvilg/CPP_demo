@@ -7,8 +7,18 @@
 
 ## Запуск
 
+Из корня репозитория:
+
 ```powershell
-.\build.ps1 -Run
+.\build.ps1 -Run QtWidgetsDemo
+```
+
+Или напрямую через CMake:
+
+```powershell
+cmake --preset debug
+cmake --build --preset debug
+.\build\debug\bin\QtWidgetsDemo.exe
 ```
 
 ---
