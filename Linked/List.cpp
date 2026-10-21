@@ -275,6 +275,123 @@ std::compare_three_way_result_t<T> List<T>::operator<=>(const List& other) const
     throw std::logic_error("List::operator<=> не реализован");
 }
 
+template <ListElement T>
+void List<T>::assign(std::size_t count, const T& value) {
+    (void)count;
+    (void)value;
+    throw std::logic_error("List::assign (count, value) не реализован");
+}
+
+template <ListElement T>
+void List<T>::assign(std::initializer_list<T> values) {
+    (void)values;
+    throw std::logic_error("List::assign (initializer_list) не реализован");
+}
+
+template <ListElement T>
+void List<T>::resize(std::size_t count)
+    requires std::default_initializable<T>
+{
+    (void)count;
+    throw std::logic_error("List::resize (count) не реализован");
+}
+
+template <ListElement T>
+void List<T>::resize(std::size_t count, const T& value) {
+    (void)count;
+    (void)value;
+    throw std::logic_error("List::resize (count, value) не реализован");
+}
+
+template <ListElement T>
+void List<T>::unique()
+    requires std::equality_comparable<T>
+{
+    throw std::logic_error("List::unique не реализован");
+}
+
+template <ListElement T>
+void List<T>::merge(List& other)
+    requires std::totally_ordered<T>
+{
+    (void)other;
+    throw std::logic_error("List::merge не реализован");
+}
+
+template <ListElement T>
+template <typename... Args>
+    requires std::constructible_from<T, Args...>
+T& List<T>::emplaceLast(Args&&... args) {
+    // Свёртка по запятой: раскрывается в ((void) a1, (void) a2, ...) и
+    // упоминает каждый аргумент. sizeof...(args) здесь не годится — он
+    // спрашивает только размер пачки, а сами параметры остаются
+    // неиспользованными, и MSVC выдаёт на них C4100.
+    ((void)args, ...);
+    throw std::logic_error("List::emplaceLast не реализован");
+}
+
+template <ListElement T>
+template <typename... Args>
+    requires std::constructible_from<T, Args...>
+T& List<T>::emplaceStart(Args&&... args) {
+    ((void)args, ...);
+    throw std::logic_error("List::emplaceStart не реализован");
+}
+
+// --- итератор ---
+//
+// Конструктор настоящий, он тут ничего не решает. Всё остальное —
+// заглушки, и это и есть упражнение.
+
+template <ListElement T>
+List<T>::Iterator::Iterator(Node* node) : m_node(node) {}
+
+template <ListElement T>
+T& List<T>::Iterator::operator*() const {
+    throw std::logic_error("List::Iterator::operator* не реализован");
+}
+
+template <ListElement T>
+T* List<T>::Iterator::operator->() const {
+    throw std::logic_error("List::Iterator::operator-> не реализован");
+}
+
+template <ListElement T>
+typename List<T>::Iterator& List<T>::Iterator::operator++() {
+    throw std::logic_error("List::Iterator::operator++ не реализован");
+}
+
+template <ListElement T>
+typename List<T>::Iterator List<T>::Iterator::operator++(int) {
+    throw std::logic_error("List::Iterator::operator++(int) не реализован");
+}
+
+template <ListElement T>
+typename List<T>::Iterator& List<T>::Iterator::operator--() {
+    throw std::logic_error("List::Iterator::operator-- не реализован");
+}
+
+template <ListElement T>
+typename List<T>::Iterator List<T>::Iterator::operator--(int) {
+    throw std::logic_error("List::Iterator::operator--(int) не реализован");
+}
+
+template <ListElement T>
+bool List<T>::Iterator::operator==(const Iterator& other) const {
+    (void)other;
+    throw std::logic_error("List::Iterator::operator== не реализован");
+}
+
+template <ListElement T>
+typename List<T>::Iterator List<T>::begin() {
+    throw std::logic_error("List::begin не реализован");
+}
+
+template <ListElement T>
+typename List<T>::Iterator List<T>::end() {
+    throw std::logic_error("List::end не реализован");
+}
+
 template class List<int>;
 
 // --- тесты ---
@@ -987,4 +1104,306 @@ TEST_CASE("exercise: из <=> выводятся < > <= >=") {
     CHECK(longer > shorter);
     CHECK(shorter <= longer);
     CHECK_FALSE(shorter >= longer);
+}
+
+// --- упражнения: контракты на границы ---
+
+TEST_CASE("exercise: getStart и getLast на пустом бросают out_of_range") {
+    List<int> empty;
+    CHECK_THROWS_AS(empty.getStart(), std::out_of_range);
+    CHECK_THROWS_AS(empty.getLast(), std::out_of_range);
+
+    const List<int> constEmpty;
+    CHECK_THROWS_AS(constEmpty.getStart(), std::out_of_range);
+    CHECK_THROWS_AS(constEmpty.getLast(), std::out_of_range);
+}
+
+TEST_CASE("exercise: removeStart и removeLast на пустом бросают out_of_range") {
+    List<int> empty;
+    CHECK_THROWS_AS(empty.removeStart(), std::out_of_range);
+    CHECK_THROWS_AS(empty.removeLast(), std::out_of_range);
+}
+
+TEST_CASE("exercise: insert за границей бросает out_of_range") {
+    List<int> list;
+    list.addLast(1);
+
+    // допустимы 0 и 1 (== getSize), всё остальное — ошибка
+    CHECK_THROWS_AS(list.insert(2, 5), std::out_of_range);
+    CHECK_THROWS_AS(list.insert(100, 5), std::out_of_range);
+}
+
+TEST_CASE("exercise: removeAt за границей бросает out_of_range") {
+    List<int> list;
+    list.addLast(1);
+
+    CHECK_THROWS_AS(list.removeAt(1), std::out_of_range);
+    CHECK_THROWS_AS(list.removeAt(100), std::out_of_range);
+}
+
+// --- упражнения: массовые операции ---
+
+TEST_CASE("exercise: assign из count и value") {
+    List<int> list;
+    list.addLast(9);
+    list.addLast(9);
+    list.addLast(9);
+
+    list.assign(2, 7);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 7);
+    CHECK(list.getValue(1) == 7);
+}
+
+TEST_CASE("exercise: assign из списка инициализации") {
+    List<int> list;
+    list.addLast(9);
+
+    list.assign({1, 2, 3});
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(2) == 3);
+}
+
+TEST_CASE("exercise: assign нулевой длины очищает список") {
+    List<int> list;
+    list.addLast(1);
+
+    list.assign(0, 5);
+
+    CHECK(list.getSize() == 0);
+
+    // список остаётся рабочим
+    list.addLast(2);
+    CHECK(list.getValue(0) == 2);
+}
+
+TEST_CASE("exercise: resize укорачивает с конца") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+    list.addLast(3);
+
+    list.resize(2);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+}
+
+TEST_CASE("exercise: resize удлиняет значением по умолчанию") {
+    List<int> list;
+    list.addLast(1);
+
+    list.resize(3);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 0);
+    CHECK(list.getValue(2) == 0);
+}
+
+TEST_CASE("exercise: resize удлиняет заданным значением") {
+    List<int> list;
+    list.addLast(1);
+
+    list.resize(3, 8);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(1) == 8);
+    CHECK(list.getValue(2) == 8);
+}
+
+TEST_CASE("exercise: resize до нуля и обратно") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+
+    list.resize(0);
+    REQUIRE(list.getSize() == 0);
+
+    list.resize(2, 5);
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 5);
+}
+
+TEST_CASE("exercise: unique убирает подряд идущие дубликаты") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(1);
+    list.addLast(2);
+    list.addLast(2);
+    list.addLast(2);
+    list.addLast(1);
+
+    list.unique();
+
+    // последняя единица остаётся: она не подряд с первыми
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+    CHECK(list.getValue(2) == 1);
+}
+
+TEST_CASE("exercise: unique на пустом и без дубликатов") {
+    List<int> empty;
+    empty.unique();
+    CHECK(empty.getSize() == 0);
+
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+    list.unique();
+    CHECK(list.getSize() == 2);
+}
+
+TEST_CASE("exercise: merge сливает два отсортированных списка") {
+    List<int> a;
+    a.addLast(1);
+    a.addLast(3);
+    a.addLast(5);
+
+    List<int> b;
+    b.addLast(2);
+    b.addLast(4);
+
+    a.merge(b);
+
+    REQUIRE(a.getSize() == 5);
+    CHECK(a.getValue(0) == 1);
+    CHECK(a.getValue(1) == 2);
+    CHECK(a.getValue(2) == 3);
+    CHECK(a.getValue(3) == 4);
+    CHECK(a.getValue(4) == 5);
+
+    // источник опустошается: узлы перецеплены, а не скопированы
+    CHECK(b.getSize() == 0);
+}
+
+TEST_CASE("exercise: merge с пустым списком") {
+    List<int> a;
+    a.addLast(1);
+
+    List<int> empty;
+    a.merge(empty);
+
+    REQUIRE(a.getSize() == 1);
+    CHECK(a.getValue(0) == 1);
+
+    List<int> b;
+    b.addLast(2);
+    empty.merge(b);
+
+    REQUIRE(empty.getSize() == 1);
+    CHECK(empty.getValue(0) == 2);
+}
+
+TEST_CASE("exercise: emplaceLast и emplaceStart") {
+    List<int> list;
+
+    int& last = list.emplaceLast(2);
+    CHECK(last == 2);
+
+    int& first = list.emplaceStart(1);
+    CHECK(first == 1);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+
+    // возвращается ссылка на сам элемент, а не копия
+    last = 20;
+    CHECK(list.getValue(1) == 20);
+}
+
+// --- упражнения: итератор ---
+
+TEST_CASE("exercise: range-based for по списку") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+    list.addLast(3);
+
+    int sum = 0;
+    for (int x : list) {
+        sum += x;
+    }
+
+    CHECK(sum == 6);
+}
+
+TEST_CASE("exercise: итератор идёт вперёд до end") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+
+    auto it = list.begin();
+    CHECK(*it == 1);
+
+    ++it;
+    CHECK(*it == 2);
+
+    ++it;
+    const bool atEnd = (it == list.end());
+    CHECK(atEnd);
+}
+
+TEST_CASE("exercise: у пустого списка begin равен end") {
+    List<int> empty;
+
+    const bool same = (empty.begin() == empty.end());
+    CHECK(same);
+}
+
+TEST_CASE("exercise: постфиксный инкремент возвращает значение до сдвига") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+
+    auto it = list.begin();
+    const int before = *(it++);
+
+    CHECK(before == 1);
+    CHECK(*it == 2);
+}
+
+TEST_CASE("exercise: итератор ходит назад") {
+    List<int> list;
+    list.addLast(1);
+    list.addLast(2);
+    list.addLast(3);
+
+    auto it = list.begin();
+    ++it;
+    ++it;
+    CHECK(*it == 3);
+
+    --it;
+    CHECK(*it == 2);
+
+    const int before = *(it--);
+    CHECK(before == 2);
+    CHECK(*it == 1);
+}
+
+TEST_CASE("exercise: через итератор можно менять элемент") {
+    List<int> list;
+    list.addLast(1);
+
+    auto it = list.begin();
+    *it = 42;
+
+    CHECK(list.getValue(0) == 42);
+}
+
+TEST_CASE("exercise: operator-> у итератора") {
+    List<int> list;
+    list.addLast(7);
+
+    auto it = list.begin();
+
+    // у int нет полей, поэтому зовём стрелку явно: она отдаёт T*
+    CHECK(*it.operator->() == 7);
 }

@@ -4,6 +4,7 @@
 #include <concepts>
 #include <cstddef>
 #include <initializer_list>
+#include <iterator>
 
 // Что List требует от элемента всегда: уметь копироваться и
 // присваиваться. Больше ничего — ни сравнения, ни порядка.
@@ -19,6 +20,19 @@ concept ListElement = std::copy_constructible<T> && std::assignable_from<T&, con
 
 template <ListElement T>
 class List {
+private:
+    // Только объявление, определение — в List.cpp. Снаружи Node не виден
+    // даже как имя полей: m_head и m_tail это указатели, а указателю на
+    // неполный тип полное определение не нужно.
+    //
+    // Для шаблона такое работает лишь потому, что единственное
+    // инстанцирование List тоже лежит в List.cpp:
+    //     template class List<int>;
+    // Компилятору негде увидеть List<U> для другого U, а значит и Node
+    // ему там не понадобится. Нужен List<std::string> — добавь рядом
+    // ещё одну строку инстанцирования.
+    class Node;
+
 public:
     List() = default;
 
@@ -33,6 +47,15 @@ public:
     void addStart(const T& value);
 
     std::size_t getSize() const;
+
+    // Быстрый доступ без проверок: индекс за границей — UB, как у
+    // operator[] у вектора. Проверяющий вариант — at() ниже.
+    //
+    // Метод неконстантный, хотя возвращает const T&, и это расходится с
+    // остальным классом: getSize, at, getStart и getLast — константные.
+    // Так и задумано: константную версию нельзя написать, не заведя
+    // const-версию nodeAt, а это часть упражнения с at(). Сделаешь at —
+    // заодно пометь const и здесь.
     const T& getValue(std::size_t index);
 
     void setValue(std::size_t index, const T& value);
@@ -47,6 +70,13 @@ public:
     //
     // Прогнать только нерешённое:   ctest --preset debug -R exercise
     // Прогнать только то, что есть: ctest --preset debug -E exercise
+    //
+    // ОБЩЕЕ ПРАВИЛО ПРО ГРАНИЦЫ. Всё, что ниже, при выходе за границы и
+    // на пустом списке бросает std::out_of_range. Это отличается от
+    // std::list, где такие вызовы — UB: стандарт выбирает скорость, а
+    // мы выбираем проверяемость, потому что на брошенное исключение
+    // можно написать тест, а на UB нельзя. Исключения из правила два и
+    // оба выше: getValue и setValue, они намеренно без проверок.
 
     // Правило пяти: деструктор, копирование и перемещение.
     // Забрать у other содержимое и оставить его пустым, но валидным.
@@ -63,13 +93,15 @@ public:
     // Освободить все узлы; список остаётся пригодным для вставки
     void clear();
 
+    // На пустом списке — std::out_of_range
     void removeStart();
     void removeLast();
 
     // Вставить value перед элементом index; index == getSize() —
-    // то же, что addLast
+    // то же, что addLast. Больше getSize() — std::out_of_range.
     void insert(std::size_t index, const T& value);
 
+    // index >= getSize() — std::out_of_range
     void removeAt(std::size_t index);
 
     // В отличие от getValue проверяет границы и бросает
@@ -85,6 +117,7 @@ public:
     // Первый и последний элементы. Обязаны работать за O(1).
     // По неконстантной версии можно и присваивать:
     //     list.getStart() = 5;
+    // На пустом списке — std::out_of_range.
     T& getStart();
     const T& getStart() const;
 
@@ -92,7 +125,7 @@ public:
     const T& getLast() const;
 
     // Удалить ВСЕ элементы, равные value. Пустой список и отсутствие
-    // если удаляется первый или последний.
+    // совпадений — не ошибка, просто ничего не произойдёт.
     void removeValue(const T& value)
         requires std::equality_comparable<T>;
 
@@ -121,19 +154,101 @@ public:
     std::compare_three_way_result_t<T> operator<=>(const List& other) const
         requires std::three_way_comparable<T>;
 
-private:
-    // Только объявление, определение — в List.cpp. Снаружи Node не виден
-    // даже как имя полей: m_head и m_tail это указатели, а указателю на
-    // неполный тип полное определение не нужно.
-    //
-    // Для шаблона такое работает лишь потому, что единственное
-    // инстанцирование List тоже лежит в List.cpp:
-    //     template class List<int>;
-    // Компилятору негде увидеть List<U> для другого U, а значит и Node
-    // ему там не понадобится. Нужен List<std::string> — добавь рядом
-    // ещё одну строку инстанцирования.
-    class Node;
+    // Заменить всё содержимое. Старые узлы освободить.
+    void assign(std::size_t count, const T& value);
+    void assign(std::initializer_list<T> values);
 
+    // Изменить длину: короче — лишнее удалить с конца, длиннее —
+    // добить в конец. Версия без value добивает T{}, поэтому требует от
+    // типа конструктор по умолчанию — ещё один повод для requires
+    // именно на методе, а не на классе.
+    void resize(std::size_t count)
+        requires std::default_initializable<T>;
+    void resize(std::size_t count, const T& value);
+
+    // Удалить подряд идущие дубликаты, оставив по одному. Именно
+    // подряд идущие: чтобы убрать все, список сначала сортируют.
+    void unique()
+        requires std::equality_comparable<T>;
+
+    // Слить в себя другой отсортированный список, перецепив его узлы.
+    // Копирования нет вообще, other остаётся пустым. Оба списка должны
+    // быть отсортированы — иначе результат бессмысленный.
+    void merge(List& other)
+        requires std::totally_ordered<T>;
+
+    // Сконструировать элемент прямо в узле, без промежуточной копии.
+    // Отличие от addLast(T(args...)) в том, что временный объект не
+    // создаётся: аргументы прокидываются в конструктор T как есть,
+    // сохраняя константность и rvalue-ность. Приём называется
+    // perfect forwarding.
+    template <typename... Args>
+        requires std::constructible_from<T, Args...>
+    T& emplaceLast(Args&&... args);
+
+    template <typename... Args>
+        requires std::constructible_from<T, Args...>
+    T& emplaceStart(Args&&... args);
+
+    // --- итератор ---
+    //
+    // Нужен, чтобы заработало for (int x : list) и алгоритмы из
+    // <algorithm>. Range-based for разворачивается примерно в
+    //
+    //     for (auto it = list.begin(); it != list.end(); ++it) {
+    //         int x = *it;
+    //         ...
+    //     }
+    //
+    // то есть минимум от итератора нужно: operator*, operator++ и
+    // сравнение. Остальное — чтобы он считался полноценным
+    // двунаправленным итератором и его принимали алгоритмы.
+    //
+    // Категорию заявляем двунаправленной: список двусвязный, значит
+    // умеет и назад. Отсюда и operator--.
+    //
+    // Константной версии здесь нет: по const List& пройтись не выйдет.
+    // Это следующий шаг и почти дословная копия с заменой T& на
+    // const T&, поэтому интереснее сначала сделать эту.
+    class Iterator {
+    public:
+        using iterator_category = std::bidirectional_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = T*;
+        using reference = T&;
+
+        Iterator() = default;
+
+        // Конструктор публичный, но снаружи недоступен: Node — приватный
+        // тип List, и указатель на него вне класса просто неоткуда взять.
+        explicit Iterator(Node* node);
+
+        reference operator*() const;
+        pointer operator->() const;
+
+        // Префиксный возвращает ссылку на себя, постфиксный — копию до
+        // инкремента. Поэтому префиксный и дешевле: привычка писать ++it
+        // вместо it++ в циклах растёт отсюда.
+        Iterator& operator++();
+        Iterator operator++(int);
+
+        Iterator& operator--();
+        Iterator operator--(int);
+
+        // operator!= писать не нужно: в C++20 компилятор выводит его
+        // из operator== сам.
+        bool operator==(const Iterator& other) const;
+
+    private:
+        Node* m_node = nullptr;
+    };
+
+    // end() — это итератор ЗА последним элементом, а не на него.
+    Iterator begin();
+    Iterator end();
+
+private:
     Node* nodeAt(std::size_t index);
 
     std::size_t m_size = 0;
