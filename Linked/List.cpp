@@ -1,4 +1,5 @@
 #include "List.h"
+#include <stdexcept>
 #include <utility>
 
 #include <doctest/doctest.h>
@@ -152,6 +153,72 @@ void List<T>::swap(List& other) noexcept {
     std::swap(m_size, other.m_size);
     std::swap(m_head, other.m_head);
     std::swap(m_tail, other.m_tail);
+}
+
+// --- упражнения: заглушки ---
+//
+// Реализовать и довести до зелёного тесты "exercise: ..." ниже.
+//
+// (void) перед throw — чтобы -Wunused-parameter с -Werror не завалил
+// сборку на неиспользованном аргументе. Когда напишешь тело, эти строки
+// удаляются.
+
+template <typename T>
+List<T>::List(List&& other) noexcept {
+    // TODO: реализовать
+    (void)other;
+}
+
+template <typename T>
+List<T>& List<T>::operator=(List&& other) noexcept {
+    // TODO: реализовать
+    (void)other;
+    return *this;
+}
+
+template <typename T>
+bool List<T>::isEmpty() const {
+    throw std::logic_error("List::isEmpty не реализован");
+}
+
+template <typename T>
+void List<T>::clear() {
+    throw std::logic_error("List::clear не реализован");
+}
+
+template <typename T>
+void List<T>::remove_start() {
+    throw std::logic_error("List::remove_start не реализован");
+}
+
+template <typename T>
+void List<T>::remove_last() {
+    throw std::logic_error("List::remove_last не реализован");
+}
+
+template <typename T>
+void List<T>::insert(std::size_t index, const T& value) {
+    (void)index;
+    (void)value;
+    throw std::logic_error("List::insert не реализован");
+}
+
+template <typename T>
+void List<T>::removeAt(std::size_t index) {
+    (void)index;
+    throw std::logic_error("List::removeAt не реализован");
+}
+
+template <typename T>
+const T& List<T>::at(std::size_t index) const {
+    (void)index;
+    throw std::logic_error("List::at не реализован");
+}
+
+template <typename T>
+bool List<T>::operator==(const List& other) const {
+    (void)other;
+    throw std::logic_error("List::operator== не реализован");
 }
 
 template class List<int>;
@@ -407,4 +474,235 @@ TEST_CASE("список держит много элементов в прави
     CHECK(list.getValue(0) == 0);
     CHECK(list.getValue(50) == 50);
     CHECK(list.getValue(99) == 99);
+}
+
+// --- упражнения: тесты, которые должны стать зелёными ---
+//
+// Сейчас они падают: методы объявлены, но не реализованы. Это и есть
+// задание — реализовать и добиться зелёного.
+//
+// Только эти:    ctest --preset debug -R exercise
+// Только готовые: ctest --preset debug -E exercise
+
+TEST_CASE("exercise: isEmpty") {
+    List<int> list;
+    CHECK(list.isEmpty());
+
+    list.add_last(1);
+    CHECK_FALSE(list.isEmpty());
+}
+
+TEST_CASE("exercise: clear освобождает список") {
+    List<int> list;
+    list.add_last(1);
+    list.add_last(2);
+
+    list.clear();
+
+    CHECK(list.getSize() == 0);
+
+    // после clear список пригоден для вставки
+    list.add_last(3);
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0) == 3);
+}
+
+TEST_CASE("exercise: remove_start убирает первый элемент") {
+    List<int> list;
+    list.add_last(1);
+    list.add_last(2);
+    list.add_last(3);
+
+    list.remove_start();
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 2);
+    CHECK(list.getValue(1) == 3);
+}
+
+TEST_CASE("exercise: remove_start на списке из одного элемента") {
+    List<int> list;
+    list.add_last(1);
+
+    list.remove_start();
+
+    REQUIRE(list.getSize() == 0);
+
+    // хвост тоже должен обнулиться, иначе add_last потеряет элемент
+    list.add_last(2);
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0) == 2);
+}
+
+TEST_CASE("exercise: remove_last убирает последний элемент") {
+    List<int> list;
+    list.add_last(1);
+    list.add_last(2);
+    list.add_last(3);
+
+    list.remove_last();
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+}
+
+TEST_CASE("exercise: remove_last на списке из одного элемента") {
+    List<int> list;
+    list.add_last(1);
+
+    list.remove_last();
+
+    REQUIRE(list.getSize() == 0);
+
+    // голова тоже должна обнулиться
+    list.add_start(2);
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0) == 2);
+}
+
+TEST_CASE("exercise: insert в начало") {
+    List<int> list;
+    list.add_last(2);
+    list.add_last(3);
+
+    list.insert(0, 1);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+    CHECK(list.getValue(2) == 3);
+}
+
+TEST_CASE("exercise: insert в середину") {
+    List<int> list;
+    list.add_last(1);
+    list.add_last(3);
+
+    list.insert(1, 2);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+    CHECK(list.getValue(2) == 3);
+}
+
+TEST_CASE("exercise: insert по индексу getSize равносилен add_last") {
+    List<int> list;
+    list.add_last(1);
+
+    list.insert(list.getSize(), 2);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(1) == 2);
+}
+
+TEST_CASE("exercise: insert в пустой список") {
+    List<int> list;
+
+    list.insert(0, 1);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0) == 1);
+
+    // и голова, и хвост должны смотреть на новый узел
+    list.add_last(2);
+    CHECK(list.getValue(1) == 2);
+}
+
+TEST_CASE("exercise: removeAt убирает элемент по индексу") {
+    List<int> list;
+    list.add_last(1);
+    list.add_last(2);
+    list.add_last(3);
+
+    list.removeAt(1);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 3);
+}
+
+TEST_CASE("exercise: at возвращает значение") {
+    List<int> list;
+    list.add_last(1);
+    list.add_last(2);
+
+    CHECK(list.at(0) == 1);
+    CHECK(list.at(1) == 2);
+}
+
+TEST_CASE("exercise: at работает на константном списке") {
+    List<int> list;
+    list.add_last(42);
+
+    const List<int>& ref = list;
+    CHECK(ref.at(0) == 42);
+}
+
+TEST_CASE("exercise: at за границей бросает out_of_range") {
+    List<int> list;
+    list.add_last(1);
+
+    CHECK_THROWS_AS(list.at(1), std::out_of_range);
+    CHECK_THROWS_AS(list.at(100), std::out_of_range);
+
+    const List<int> empty;
+    CHECK_THROWS_AS(empty.at(0), std::out_of_range);
+}
+
+TEST_CASE("exercise: move-конструктор забирает содержимое") {
+    List<int> source;
+    source.add_last(1);
+    source.add_last(2);
+
+    List<int> moved(std::move(source));
+
+    REQUIRE(moved.getSize() == 2);
+    CHECK(moved.getValue(0) == 1);
+    CHECK(moved.getValue(1) == 2);
+
+    // источник остаётся пустым, но валидным
+    CHECK(source.getSize() == 0);
+    source.add_last(3);
+    CHECK(source.getValue(0) == 3);
+}
+
+TEST_CASE("exercise: move-присваивание забирает содержимое") {
+    List<int> source;
+    source.add_last(1);
+    source.add_last(2);
+
+    List<int> target;
+    target.add_last(9);
+
+    target = std::move(source);
+
+    REQUIRE(target.getSize() == 2);
+    CHECK(target.getValue(0) == 1);
+    CHECK(target.getValue(1) == 2);
+    CHECK(source.getSize() == 0);
+}
+
+TEST_CASE("exercise: operator== сравнивает содержимое") {
+    List<int> a;
+    a.add_last(1);
+    a.add_last(2);
+
+    List<int> b;
+    b.add_last(1);
+    b.add_last(2);
+
+    CHECK(a == b);
+
+    b.setValue(1, 99);
+    CHECK_FALSE(a == b);
+
+    List<int> shorter;
+    shorter.add_last(1);
+    CHECK_FALSE(a == shorter);
+
+    List<int> empty1;
+    List<int> empty2;
+    CHECK(empty1 == empty2);
 }
