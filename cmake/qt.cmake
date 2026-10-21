@@ -92,3 +92,19 @@ function(cpp_demo_deploy_qt target)
         add_custom_target(deploy DEPENDS deploy_${target})
     endif()
 endfunction()
+
+# --- общий хвост qt-приложения ---
+#
+# То, что одинаково у QtWidgetsDemo и TcpServer: src в путях включения,
+# общие флаги предупреждений, консольное приложение на Windows и раскладка
+# Qt DLL. Вызывается после qt_add_executable и target_link_libraries.
+
+function(cpp_demo_qt_app target)
+    target_include_directories(${target} PRIVATE src)
+    target_link_libraries(${target} PRIVATE project_warnings)
+
+    # WIN32_EXECUTABLE FALSE: нужна консоль, чтобы был виден qDebug/qWarning
+    set_target_properties(${target} PROPERTIES WIN32_EXECUTABLE FALSE)
+
+    cpp_demo_deploy_qt(${target})
+endfunction()

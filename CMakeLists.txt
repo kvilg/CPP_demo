@@ -29,6 +29,5 @@ add_subdirectory(Linked)
 # qt/ собираются, если Qt нашёлся (поиск в cmake/qt.cmake).
 # Отдельного флага нет: есть Qt — есть сборка.
 if(Qt6_FOUND)
-    add_subdirectory(qt/QtWidgetsDemo)
-    add_subdirectory(qt/TcpServer)
+    add_subdirectory(qt)
 endif()
