@@ -3,6 +3,34 @@
 
 #include <doctest/doctest.h>
 
+// Определение Node. В List.h от него осталось только `class Node;` —
+// наружу утекает лишь имя, а устройство узла (значение и две ссылки)
+// видно только здесь.
+template <typename T>
+class List<T>::Node {
+public:
+    explicit Node(const T& value);
+
+    ~Node() = default;
+
+    void setValue(const T& value);
+
+    const T& getValue() const;
+
+    void setNext(Node* node);
+
+    void setPrev(Node* node);
+
+    Node* getNext() const;
+
+    Node* getPrev() const;
+
+private:
+    T m_value;
+    Node* m_next = nullptr;
+    Node* m_prev = nullptr;
+};
+
 template <typename T>
 void List<T>::Node::setValue(const T& value) {
     m_value = value;
