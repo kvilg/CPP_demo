@@ -3,10 +3,14 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 
-#ifdef Q_OS_WIN
+#include <chrono>
+#include <cstdlib>
 #include <thread>
-#include <windows.h>
 
+// Только ради SetConsoleOutputCP ниже — больше ничего Windows-зависимого
+// здесь нет
+#ifdef Q_OS_WIN
+#include <windows.h>
 #endif
 
 // --- чего здесь не хватает по заданию ---
