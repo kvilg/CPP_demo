@@ -1,5 +1,6 @@
 #pragma once
 
+#include <compare>
 #include <cstddef>
 #include <initializer_list>
 
@@ -14,9 +15,9 @@ public:
 
     ~List();
 
-    void add_last(const T& value);
+    void addLast(const T& value);
 
-    void add_start(const T& value);
+    void addStart(const T& value);
 
     std::size_t getSize() const;
     const T& getValue(std::size_t index);
@@ -49,11 +50,11 @@ public:
     // Освободить все узлы; список остаётся пригодным для вставки
     void clear();
 
-    void remove_start();
-    void remove_last();
+    void removeStart();
+    void removeLast();
 
     // Вставить value перед элементом index; index == getSize() —
-    // то же, что add_last
+    // то же, что addLast
     void insert(std::size_t index, const T& value);
 
     void removeAt(std::size_t index);
@@ -63,6 +64,33 @@ public:
     const T& at(std::size_t index) const;
 
     bool operator==(const List& other) const;
+
+    // Первый и последний элементы. Обязаны работать за O(1).
+    // По неконстантной версии можно и присваивать:
+    //     list.getStart() = 5;
+    T& getStart();
+    const T& getStart() const;
+
+    T& getLast();
+    const T& getLast() const;
+
+    // Удалить ВСЕ элементы, равные value. Пустой список и отсутствие
+    // если удаляется первый или последний.
+    void removeValue(const T& value);
+
+    // Развернуть список, перецепив узлы. Значения при этом не копируются
+    // и не меняются — именно поэтому у списка своя операция, а не
+    // свободный std::reverse, который переставляет значения обменом.
+    void reverse();
+
+    // Отсортировать по возрастанию. std::sort сюда не подходит:
+    // ему нужны итераторы произвольного доступа, которых у связного
+    // списка нет и быть не может.
+    void sort();
+
+    // C++20: описываешь одно сравнение, а <, >, <=, >= компилятор
+    // выводит из него сам. Порядок лексикографический, как у строк.
+    std::strong_ordering operator<=>(const List& other) const;
 
 private:
     // Только объявление, определение — в List.cpp. Снаружи Node не виден

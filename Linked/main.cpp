@@ -4,10 +4,10 @@
 
 int main() {
     List<int> list;
-    list.add_last(1);
-    list.add_last(2);
-    list.add_last(3);
-    list.add_last(4);
+    list.addLast(1);
+    list.addLast(2);
+    list.addLast(3);
+    list.addLast(4);
 
     List<int> copy(list);
 
