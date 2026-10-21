@@ -1,10 +1,23 @@
 #pragma once
 
 #include <compare>
+#include <concepts>
 #include <cstddef>
 #include <initializer_list>
 
+// Что List требует от элемента всегда: уметь копироваться и
+// присваиваться. Больше ничего — ни сравнения, ни порядка.
+//
+// У std::list такого нет: стандартная библиотека описывает требования к
+// элементу словами (Cpp17CopyInsertable и прочие), а в коде их не
+// проверяет — концепты в C++20 получили ranges и алгоритмы, но не
+// контейнеры, иначе сломалась бы совместимость. Нам же концепт полезен
+// ровно тем, что превращает простыню ошибок из глубины шаблона в одну
+// внятную строку.
 template <typename T>
+concept ListElement = std::copy_constructible<T> && std::assignable_from<T&, const T&>;
+
+template <ListElement T>
 class List {
 public:
     List() = default;
@@ -63,7 +76,11 @@ public:
     // std::out_of_range. И, в отличие от него же, const.
     const T& at(std::size_t index) const;
 
-    bool operator==(const List& other) const;
+    // Сравнение требует от T равенства — но только оно, а не весь класс.
+    // Тип без operator== должен спокойно жить в списке, пока этот метод
+    // не позвали; поэтому requires висит на методе, а не на классе.
+    bool operator==(const List& other) const
+        requires std::equality_comparable<T>;
 
     // Первый и последний элементы. Обязаны работать за O(1).
     // По неконстантной версии можно и присваивать:
@@ -76,7 +93,8 @@ public:
 
     // Удалить ВСЕ элементы, равные value. Пустой список и отсутствие
     // если удаляется первый или последний.
-    void removeValue(const T& value);
+    void removeValue(const T& value)
+        requires std::equality_comparable<T>;
 
     // Развернуть список, перецепив узлы. Значения при этом не копируются
     // и не меняются — именно поэтому у списка своя операция, а не
@@ -86,11 +104,22 @@ public:
     // Отсортировать по возрастанию. std::sort сюда не подходит:
     // ему нужны итераторы произвольного доступа, которых у связного
     // списка нет и быть не может.
-    void sort();
+    void sort()
+        requires std::totally_ordered<T>;
 
     // C++20: описываешь одно сравнение, а <, >, <=, >= компилятор
     // выводит из него сам. Порядок лексикографический, как у строк.
-    std::strong_ordering operator<=>(const List& other) const;
+    //
+    // Категория не прибита к strong_ordering, а выводится из T:
+    // у int сравнение даёт строгий порядок, а у double — частичный,
+    // потому что NaN не равен ничему, включая себя. Прибей мы здесь
+    // strong_ordering — и List<double> остался бы без сравнения вовсе.
+    //
+    // std::list идёт ещё дальше: его synth-three-way умеет собрать
+    // категорию даже из одного operator<, если <=> у типа нет. Нам
+    // столько не нужно, достаточно потребовать <=>.
+    std::compare_three_way_result_t<T> operator<=>(const List& other) const
+        requires std::three_way_comparable<T>;
 
 private:
     // Только объявление, определение — в List.cpp. Снаружи Node не виден

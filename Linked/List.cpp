@@ -7,7 +7,7 @@
 // Определение Node. В List.h от него осталось только `class Node;` —
 // наружу утекает лишь имя, а устройство узла (значение и две ссылки)
 // видно только здесь.
-template <typename T>
+template <ListElement T>
 class List<T>::Node {
 public:
     explicit Node(const T& value);
@@ -32,42 +32,40 @@ private:
     Node* m_prev = nullptr;
 };
 
-template <typename T>
+template <ListElement T>
 void List<T>::Node::setValue(const T& value) {
     m_value = value;
 }
 
-template <typename T>
+template <ListElement T>
 const T& List<T>::Node::getValue() const {
     return m_value;
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::Node::setNext(Node* node) {
     m_next = node;
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::Node::setPrev(Node* node) {
     m_prev = node;
 }
 
-template <typename T>
+template <ListElement T>
 typename List<T>::Node* List<T>::Node::getNext() const {
     return m_next;
 }
 
-template <typename T>
+template <ListElement T>
 typename List<T>::Node* List<T>::Node::getPrev() const {
     return m_prev;
 }
 
-template <typename T>
-List<T>::Node::Node(const T& value) {
-    m_value = value;
-}
+template <ListElement T>
+List<T>::Node::Node(const T& value) : m_value(value) {}
 
-template <typename T>
+template <ListElement T>
 typename List<T>::Node* List<T>::nodeAt(std::size_t index) {
     Node* cur = m_head;
     for (std::size_t i = 0; i < index && cur != nullptr; ++i) {
@@ -76,7 +74,7 @@ typename List<T>::Node* List<T>::nodeAt(std::size_t index) {
     return cur;
 }
 
-template <typename T>
+template <ListElement T>
 List<T>::List(const List& other) {
     List tmp;
     for (Node* n = other.m_head; n != nullptr; n = n->getNext()) {
@@ -85,7 +83,7 @@ List<T>::List(const List& other) {
     swap(tmp);
 }
 
-template <typename T>
+template <ListElement T>
 List<T>& List<T>::operator=(const List& other) {
     if (this != &other) {
         List tmp(other);
@@ -94,7 +92,7 @@ List<T>& List<T>::operator=(const List& other) {
     return *this;
 }
 
-template <typename T>
+template <ListElement T>
 List<T>::~List() {
     Node* cur = m_head;
     while (cur != nullptr) {
@@ -104,7 +102,7 @@ List<T>::~List() {
     }
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::addLast(const T& value) {
     Node* node = new Node(value);
     node->setPrev(m_tail);
@@ -118,7 +116,7 @@ void List<T>::addLast(const T& value) {
     ++m_size;
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::addStart(const T& value) {
     Node* node = new Node(value);
     node->setNext(m_head);
@@ -133,22 +131,22 @@ void List<T>::addStart(const T& value) {
     ++m_size;
 }
 
-template <typename T>
+template <ListElement T>
 std::size_t List<T>::getSize() const {
     return m_size;
 }
 
-template <typename T>
+template <ListElement T>
 const T& List<T>::getValue(std::size_t index) {
     return nodeAt(index)->getValue();
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::setValue(std::size_t index, const T& value) {
     nodeAt(index)->setValue(value);
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::swap(List& other) noexcept {
     std::swap(m_size, other.m_size);
     std::swap(m_head, other.m_head);
@@ -163,108 +161,116 @@ void List<T>::swap(List& other) noexcept {
 // сборку на неиспользованном аргументе. Когда напишешь тело, эти строки
 // удаляются.
 
-template <typename T>
+template <ListElement T>
 List<T>::List(List&& other) noexcept {
     // TODO: реализовать
     (void)other;
 }
 
-template <typename T>
+template <ListElement T>
 List<T>& List<T>::operator=(List&& other) noexcept {
     // TODO: реализовать
     (void)other;
     return *this;
 }
 
-template <typename T>
+template <ListElement T>
 List<T>::List(std::initializer_list<T> values) {
     (void)values;
     throw std::logic_error("List::List(initializer_list) не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 bool List<T>::isEmpty() const {
     throw std::logic_error("List::isEmpty не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::clear() {
     throw std::logic_error("List::clear не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::removeStart() {
     throw std::logic_error("List::removeStart не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::removeLast() {
     throw std::logic_error("List::removeLast не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::insert(std::size_t index, const T& value) {
     (void)index;
     (void)value;
     throw std::logic_error("List::insert не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::removeAt(std::size_t index) {
     (void)index;
     throw std::logic_error("List::removeAt не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 const T& List<T>::at(std::size_t index) const {
     (void)index;
     throw std::logic_error("List::at не реализован");
 }
 
-template <typename T>
-bool List<T>::operator==(const List& other) const {
+template <ListElement T>
+bool List<T>::operator==(const List& other) const
+    requires std::equality_comparable<T>
+{
     (void)other;
     throw std::logic_error("List::operator== не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 T& List<T>::getStart() {
     throw std::logic_error("List::getStart не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 const T& List<T>::getStart() const {
     throw std::logic_error("List::getStart (const) не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 T& List<T>::getLast() {
     throw std::logic_error("List::getLast не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 const T& List<T>::getLast() const {
     throw std::logic_error("List::getLast (const) не реализован");
 }
 
-template <typename T>
-void List<T>::removeValue(const T& value) {
+template <ListElement T>
+void List<T>::removeValue(const T& value)
+    requires std::equality_comparable<T>
+{
     (void)value;
     throw std::logic_error("List::removeValue не реализован");
 }
 
-template <typename T>
+template <ListElement T>
 void List<T>::reverse() {
     throw std::logic_error("List::reverse не реализован");
 }
 
-template <typename T>
-void List<T>::sort() {
+template <ListElement T>
+void List<T>::sort()
+    requires std::totally_ordered<T>
+{
     throw std::logic_error("List::sort не реализован");
 }
 
-template <typename T>
-std::strong_ordering List<T>::operator<=>(const List& other) const {
+template <ListElement T>
+std::compare_three_way_result_t<T> List<T>::operator<=>(const List& other) const
+    requires std::three_way_comparable<T>
+{
     (void)other;
     throw std::logic_error("List::operator<=> не реализован");
 }
