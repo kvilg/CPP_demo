@@ -83,3 +83,42 @@ if(CPP_DEMO_SANITIZERS)
         message(STATUS "Санитайзеры: ASan + UBSan")
     endif()
 endif()
+
+# --- покрытие тестами ---
+#
+# Покрытие собирает компилятор, не doctest: в doctest такого флага нет
+# (опция DOCTEST_INTERNAL_COVERAGE в его CMakeLists — для покрытия самого
+# doctest, когда его разрабатывают).
+#
+# Прогон:
+#   cmake --preset coverage
+#   cmake --build --preset coverage
+#   ctest --preset coverage
+#   gcov -o build/coverage/Linked/CMakeFiles/Linked_tests.dir Linked/List.cpp
+#
+# gcov.exe лежит рядом с g++ в комплекте MinGW. Для HTML-отчёта нужен
+# gcovr (pip install gcovr) или lcov — в комплекте Qt их нет:
+#   gcovr --root . --html-details build/coverage/coverage.html
+
+option(CPP_DEMO_COVERAGE "Собрать с измерением покрытия тестами" OFF)
+
+add_library(project_coverage INTERFACE)
+
+if(CPP_DEMO_COVERAGE)
+    if(MSVC)
+        # У MSVC своего gcov нет; покрытие снимают сторонним
+        # OpenCppCoverage по готовому .exe, флаги компилятора не нужны.
+        message(FATAL_ERROR
+            "CPP_DEMO_COVERAGE=ON не работает с MSVC: у него нет аналога "
+            "--coverage.\n"
+            "Варианты:\n"
+            "  - собрать g++ или clang и снять покрытие через gcov;\n"
+            "  - оставить сборку MSVC и прогнать OpenCppCoverage поверх "
+            "Linked_tests.exe."
+        )
+    else()
+        target_compile_options(project_coverage INTERFACE --coverage -O0 -g)
+        target_link_options(project_coverage INTERFACE --coverage)
+        message(STATUS "Покрытие: --coverage (читать через gcov)")
+    endif()
+endif()

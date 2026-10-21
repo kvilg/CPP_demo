@@ -38,7 +38,8 @@ enable_testing()
 add_executable(Linked_tests List.cpp)
 target_link_libraries(Linked_tests PRIVATE
         doctest::doctest_with_main
-        project_warnings)
+        project_warnings
+        project_coverage)
 
 # doctest_discover_tests регистрирует каждый TEST_CASE отдельным тестом ctest
 include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")
