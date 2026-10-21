@@ -1,0 +1,35 @@
+# Отступы и края файлов для редакторов. Дополняет .clang-format, который
+# знает только про C++: CMakeLists.txt, .json и .md он не трогает.
+#
+# end_of_line намеренно не задан: переводами строк управляет .gitattributes
+# (в репозитории LF, в рабочей копии как принято в системе), и если
+# прописать здесь lf, редактор начнёт спорить с git.
+
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cpp,h}]
+indent_size = 4
+
+[{CMakeLists.txt,*.cmake}]
+indent_size = 4
+
+[*.json]
+indent_size = 4
+
+[*.md]
+# Две пробела в конце строки в markdown — это перенос, их нельзя срезать
+trim_trailing_whitespace = false
+
+[*.ps1]
+# CRLF, как и в .gitattributes: скрипты только для Windows
+end_of_line = crlf
+
+[*.{yml,yaml}]
+indent_size = 2
