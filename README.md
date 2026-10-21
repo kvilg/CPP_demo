@@ -4,7 +4,7 @@
 
 | Проект | Что это |
 |---|---|
-| [Linked](Linked) | Двусвязный список своими руками, с тестами на doctest |
+| [Linked](Linked) | Двусвязный список своими руками, с тестами на doctest и списком упражнений |
 | [qt/TcpServer](qt/TcpServer) | TCP echo-сервер на Qt Network, один файл |
 | [qt/QtWidgetsDemo](qt/QtWidgetsDemo) | Клиент с графиком в реальном времени на Qt Widgets и Charts |
 
