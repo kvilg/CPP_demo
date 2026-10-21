@@ -97,19 +97,19 @@ int main(int argc, char* argv[]) {
     auto* plot = new RealTimePlot;
     lay->addWidget(plot, 1);
 
-    auto* btn_box = new QHBoxLayout;
+    auto* btnBox = new QHBoxLayout;
     auto* test = new QLineEdit("1");
 
-    lay->addLayout(btn_box);
+    lay->addLayout(btnBox);
 
     auto* colorLabel = new QLabel("Цвет");
     auto* colorBtn = new QPushButton("Выбрать...");
     colorBtn->setToolTip("Цвет кривой — нажми, чтобы выбрать");
     colorBtn->setCursor(Qt::PointingHandCursor);
 
-    btn_box->addWidget(colorLabel);
-    btn_box->addWidget(colorBtn);
-    btn_box->addWidget(test);
+    btnBox->addWidget(colorLabel);
+    btnBox->addWidget(colorBtn);
+    btnBox->addWidget(test);
 
     QColor curveColor = Qt::cyan;
     plot->setCurveColor(curveColor);
