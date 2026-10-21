@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <initializer_list>
 
 template <typename T>
 class List {
@@ -37,6 +38,11 @@ public:
     // Забрать у other содержимое и оставить его пустым, но валидным.
     List(List&& other) noexcept;
     List& operator=(List&& other) noexcept;
+
+    // Чтобы писать List<int> list{1, 2, 3} — и в тестах, и в main.
+    // Обрати внимание: при пустых скобках List<int>{} вызовется всё-таки
+    // конструктор по умолчанию, такое правило у списков инициализации.
+    List(std::initializer_list<T> values);
 
     bool isEmpty() const;
 

@@ -177,6 +177,12 @@ List<T>& List<T>::operator=(List&& other) noexcept {
 }
 
 template <typename T>
+List<T>::List(std::initializer_list<T> values) {
+    (void)values;
+    throw std::logic_error("List::List(initializer_list) не реализован");
+}
+
+template <typename T>
 bool List<T>::isEmpty() const {
     throw std::logic_error("List::isEmpty не реализован");
 }
@@ -705,4 +711,18 @@ TEST_CASE("exercise: operator== сравнивает содержимое") {
     List<int> empty1;
     List<int> empty2;
     CHECK(empty1 == empty2);
+}
+
+TEST_CASE("exercise: конструктор из списка инициализации") {
+    List<int> list{1, 2, 3};
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+    CHECK(list.getValue(2) == 3);
+
+    // хвост выставлен, список можно дополнять
+    list.add_last(4);
+    REQUIRE(list.getSize() == 4);
+    CHECK(list.getValue(3) == 4);
 }
