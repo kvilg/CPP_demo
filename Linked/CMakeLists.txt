@@ -4,17 +4,18 @@ project(Linked)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-include(get_cpm)
-
-CPMAddPackage(
-        NAME doctest
-        GITHUB_REPOSITORY doctest/doctest
-        VERSION 2.5.3
-        OPTIONS
-        "DOCTEST_WITH_TESTS OFF"
-        "DOCTEST_NO_INSTALL ON"
-)
+# Проект собирается и как часть корневого CPP_demo, и сам по себе.
+# В первом случае зависимости и цели с флагами уже готовы, во втором
+# подключаем те же модули из ../cmake.
+if(NOT TARGET doctest::doctest OR NOT TARGET project_warnings)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+endif()
+if(NOT TARGET doctest::doctest)
+    include(dependencies)
+endif()
+if(NOT TARGET project_warnings)
+    include(CompilerOptions)
+endif()
 
 # Тесты живут в List.cpp. Здесь они вырезаются препроцессором:
 # DOCTEST_CONFIG_DISABLE раскрывает TEST_CASE в ничего, поэтому в
@@ -24,7 +25,9 @@ add_executable(Linked main.cpp
         List.cpp
         List.h)
 target_compile_definitions(Linked PRIVATE DOCTEST_CONFIG_DISABLE)
-target_link_libraries(Linked PRIVATE doctest::doctest)
+target_link_libraries(Linked PRIVATE
+        doctest::doctest
+        project_warnings)
 
 # --- тесты ---
 
@@ -33,7 +36,9 @@ enable_testing()
 # Тот же List.cpp, но без DOCTEST_CONFIG_DISABLE, значит с тестами.
 # main.cpp не нужен: main() приходит из doctest_with_main.
 add_executable(Linked_tests List.cpp)
-target_link_libraries(Linked_tests PRIVATE doctest::doctest_with_main)
+target_link_libraries(Linked_tests PRIVATE
+        doctest::doctest_with_main
+        project_warnings)
 
 # doctest_discover_tests регистрирует каждый TEST_CASE отдельным тестом ctest
 include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")
