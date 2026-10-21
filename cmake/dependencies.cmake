@@ -16,3 +16,14 @@ CPMAddPackage(
         "DOCTEST_WITH_TESTS OFF"
         "DOCTEST_NO_INSTALL ON"
 )
+
+# Убрать цели doctest из общего списка в IDE: там им делать нечего, это
+# чужой код. Через if(TARGET ...), потому что какие именно цели создаст
+# doctest, зависит от его опций — doctest_with_main появляется только
+# при DOCTEST_WITH_MAIN_IN_STATIC_LIB, а INTERFACE-цели IDE и так не
+# показывает.
+foreach(_doctest_target doctest doctest_with_main)
+    if(TARGET ${_doctest_target})
+        set_target_properties(${_doctest_target} PROPERTIES FOLDER "deps/doctest")
+    endif()
+endforeach()

@@ -85,6 +85,10 @@ function(cpp_demo_deploy_qt target)
             VERBATIM
     )
 
+    # Вспомогательные цели — отдельной папкой, чтобы не мешались в
+    # списке рядом с настоящими приложениями
+    set_target_properties(deploy_${target} PROPERTIES FOLDER "qt/deploy")
+
     # Короткое имя deploy — только когда проект собирается сам по себе:
     # в общей сборке оба qt-проекта создали бы цель с одним именем, и CMake
     # упал бы с "another target with the same name already exists".
@@ -104,7 +108,10 @@ function(cpp_demo_qt_app target)
     target_link_libraries(${target} PRIVATE project_warnings)
 
     # WIN32_EXECUTABLE FALSE: нужна консоль, чтобы был виден qDebug/qWarning
-    set_target_properties(${target} PROPERTIES WIN32_EXECUTABLE FALSE)
+    # FOLDER — только для дерева проекта в IDE, на сборку не влияет
+    set_target_properties(${target} PROPERTIES
+            WIN32_EXECUTABLE FALSE
+            FOLDER "qt")
 
     cpp_demo_deploy_qt(${target})
 endfunction()

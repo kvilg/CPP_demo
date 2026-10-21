@@ -60,3 +60,6 @@ target_link_libraries(Linked_tests PRIVATE
 # doctest_discover_tests регистрирует каждый TEST_CASE отдельным тестом ctest
 include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")
 doctest_discover_tests(Linked_tests)
+
+# Все три цели в одну папку дерева проекта IDE
+set_target_properties(Linked Linked_tests Linked_double PROPERTIES FOLDER "Linked")
