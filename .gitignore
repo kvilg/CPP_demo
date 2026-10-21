@@ -123,6 +123,7 @@ $RECYCLE.BIN/
 *.msp
 
 # --- прочее ---
+*.pdf
 *.log
 *.tmp
 *.bak

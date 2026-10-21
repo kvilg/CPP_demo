@@ -1,49 +1,47 @@
-# TcpServer — TCP echo server
+# TcpServer — эмулятор сигнала
 
-Сервер принимает одного клиента, читает от него данные и отправляет то же
-самое обратно. Один файл `src/main.cpp`.
+Приложение 1 из [задания](../README.md): генерирует сигнал и отдаёт его
+по TCP. Ждёт одного клиента и раз в секунду шлёт ему число, по одному в
+строке. Сам ничего не читает. Один файл `src/main.cpp`.
+
+Рисует эти числа [QtWidgetsDemo](../QtWidgetsDemo) — по отдельности
+программы бесполезны.
+
+> **Сигнал пока не тот, что требуется.** Задание просит регулярный
+> непрерывный сигнал, а здесь `std::rand() % 50` — шум. Из-за этого в
+> регистраторе нечем управлять: у случайных чисел нет ни амплитуды, ни
+> периода. Подробнее в [qt/README.md](../README.md).
 
 ---
 
 ## Запуск
 
-Из корня репозитория:
+Вместе с регистратором, из корня репозитория:
+
+```powershell
+.\build.ps1 -Demo
+```
+
+Только эмулятор:
 
 ```powershell
 .\build.ps1 -Run TcpServer
 ```
 
-Или напрямую через CMake:
-
-```powershell
-cmake --preset debug
-cmake --build --preset debug
-.\build\debug\bin\TcpServer.exe
-```
-
 ---
 
-## Проверка
+## Проверка без регистратора
 
 Открой второе окно PowerShell:
 
 ```powershell
 $c = New-Object System.Net.Sockets.TcpClient
 $c.Connect("127.0.0.1", 1234)
-$s = $c.GetStream()
-
-# отправить
-$b = [System.Text.Encoding]::UTF8.GetBytes("привет`n")
-$s.Write($b, 0, $b.Length)
-
-# получить обратно
-$buf = New-Object byte[] 1024
-$n = $s.Read($buf, 0, 1024)
-[System.Text.Encoding]::UTF8.GetString($buf, 0, $n)
+$r = New-Object System.IO.StreamReader($c.GetStream())
+while ($true) { $r.ReadLine() }
 ```
 
-Пока клиент не закрыл соединение, можно слать сколько угодно строк —
-каждая вернётся. `Ctrl+C` в окне сервера — остановить.
+Раз в секунду будет появляться число от 0 до 49. `Ctrl+C` — выйти.
 
 ---
 
@@ -53,15 +51,16 @@ $n = $s.Read($buf, 0, 1024)
 QTcpServer server;
 server.listen(QHostAddress(QHostAddress::Any), 1234);   // 1. занять порт
 
-server.waitForNewConnection(30000);                       // 2. ждать клиента
-QTcpSocket *client = server.nextPendingConnection();      //    забрать сокет
+server.waitForNewConnection(30000);                     // 2. ждать клиента
+QTcpSocket* client = server.nextPendingConnection();    //    забрать сокет
 
-while (true) {                                            // 3. эхо
-    if (client->waitForReadyRead(5000)) {
-        client->write(client->readAll());
+while (true) {                                          // 3. слать числа
+    const QByteArray out = QByteArray::number(std::rand() % 50) + "\n";
+    if (client->state() == QAbstractSocket::ConnectedState) {
+        client->write(out);
+        client->waitForBytesWritten(100);
     }
-    if (client->state() != QAbstractSocket::ConnectedState)
-        break;                                            //    клиент ушёл
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 ```
 
@@ -70,22 +69,44 @@ while (true) {                                            // 3. эхо
 | `listen(QHostAddress::Any, 1234)` | слушать на всех интерфейсах |
 | `waitForNewConnection(30000)` | блокирующее ожидание клиента, 30 секунд |
 | `nextPendingConnection()` | забрать сокет подключившегося |
-| `waitForReadyRead(5000)` | ждать данные до 5 секунд, потом проверить состояние |
-| `readAll()` | забрать всё, что пришло |
-| `state() != ConnectedState` | признак, что клиент отключился |
-| `Ctrl+C` | в консоли прерывает `waitFor*` и прерывает программу |
+| `QByteArray::number(...) + "\n"` | и есть весь протокол: число текстом, перевод строки — разделитель |
+| `waitForBytesWritten(100)` | дождаться отправки, но не дольше 100 мс |
+| `Ctrl+C` | остановить сервер |
+
+Цикла событий Qt здесь нет: `QCoreApplication` создаётся, но `exec()` не
+вызывается, всё держится на блокирующих `waitFor*`. Для такой маленькой
+программы это допустимо, но событийная версия на `QTimer` и сигналах —
+то, ради чего обычно и берут Qt.
+
+---
+
+## Что здесь сломано
+
+Это задачи, а не оправдания — всё перечисленное стоит починить.
+
+**Из цикла нельзя выйти.** `while (true)` без `break`, поэтому
+`client->close()`, `qInfo("Готово.")` и `return 0` в конце файла
+недостижимы. Остановить можно только `Ctrl+C`.
+
+**Разрыв соединения не замечается.** Проверка состояния стоит только
+вокруг записи: клиент ушёл, а цикл продолжает крутиться и спать.
+
+**Собирается только под Windows.** `<thread>` подключён под
+`#ifdef Q_OS_WIN`, а `std::this_thread::sleep_for` вызывается всегда.
+`<chrono>` и `<cstdlib>` не подключены вовсе — работает на транзитивных
+включениях, что ломается от смены версии компилятора.
+
+**`std::rand()` без `srand`** даёт одну и ту же последовательность при
+каждом запуске; на графике это заметно. И это устаревший API —
+современный ответ `<random>`.
 
 ---
 
 ## Замечания
 
-**Клиент один.** Как только он отключится, сервер завершится.
-Для многих клиентов нужен цикл: принимать всех, читать у каждого и
-рассылать остальным.
-
-**Таймаут 5000 мс** — это не «ждать данные», а «если за 5 секунд тишина,
-проверить, не отключился ли клиент». Если бы блокировка была вечной,
-сервер не заметил бы разрыв.
+**Клиент один.** Второй подключиться не сможет: `nextPendingConnection()`
+вызывается ровно раз. Для многих клиентов нужен цикл приёма и список
+сокетов.
 
 **Кодировка.** `SetConsoleOutputCP(CP_UTF8)` нужен, чтобы русский текст
 в консоли не превращался в `╤ыє°р■`. При перенаправлении вывода в файл
@@ -97,4 +118,4 @@ Windows всё равно запишет в CP1251 — это её поведе�
 
 - [QTcpServer](https://doc.qt.io/qt-6/qtcpserver.html)
 - [QTcpSocket](https://doc.qt.io/qt-6/qtcpsocket.html)
-- [Серверный пример из документации Qt](https://doc.qt.io/qt-6/qtsocketserver.html)
+- [QTimer](https://doc.qt.io/qt-6/qtimer.html) — для событийной версии

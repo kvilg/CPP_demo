@@ -11,6 +11,10 @@
     Собрать всё в конфигурации debug.
 
 .EXAMPLE
+    .\build.ps1 -Demo
+    Запустить связку: эмулятор в отдельном окне, затем регистратор.
+
+.EXAMPLE
     .\build.ps1 -Test
     Собрать и прогнать тесты.
 
@@ -31,6 +35,7 @@ param(
     [string]$Preset = "debug",
 
     [string]$Run,
+    [switch]$Demo,
     [switch]$Test,
     [switch]$Clean
 )
@@ -74,6 +79,14 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if ($Test) {
     Write-Host "`nТесты" -ForegroundColor Cyan
     ctest --preset $Preset
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+if ($Demo) {
+    # Цель run_demo объявлена в qt/CMakeLists.txt: поднимает эмулятор
+    # в отдельном окне и запускает регистратор
+    Write-Host "`nЗапускаю связку TcpServer + QtWidgetsDemo" -ForegroundColor Cyan
+    cmake --build --preset $Preset --target run_demo
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
