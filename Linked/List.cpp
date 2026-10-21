@@ -1,8 +1,5 @@
-
-
-
-#include <utility>
 #include "List.h"
+#include <utility>
 
 template <typename T>
 void List<T>::Node::setValue(const T& value) {
@@ -34,9 +31,9 @@ typename List<T>::Node* List<T>::Node::getPrev() const {
     return m_prev;
 }
 
-template<typename T>
-List<T>::Node::Node(const T &value) {
-    m_value=value;
+template <typename T>
+List<T>::Node::Node(const T& value) {
+    m_value = value;
 }
 
 template <typename T>
@@ -47,7 +44,6 @@ typename List<T>::Node* List<T>::nodeAt(std::size_t index) {
     }
     return cur;
 }
-
 
 template <typename T>
 List<T>::List(const List& other) {
@@ -77,10 +73,9 @@ List<T>::~List() {
     }
 }
 
-
 template <typename T>
 void List<T>::add_last(const T& value) {
-    Node *node = new Node(value);
+    Node* node = new Node(value);
     node->setPrev(m_tail);
 
     if (m_tail != nullptr) {
@@ -99,8 +94,7 @@ void List<T>::add_start(const T& value) {
 
     if (m_head != nullptr) {
         m_head->setPrev(node);
-    }
-    else {
+    } else {
         m_tail = node;
     }
 
@@ -108,14 +102,13 @@ void List<T>::add_start(const T& value) {
     ++m_size;
 }
 
-
 template <typename T>
 std::size_t List<T>::getSize() const {
     return m_size;
 }
 
 template <typename T>
-const T & List<T>::getValue(std::size_t index) {
+const T& List<T>::getValue(std::size_t index) {
     return nodeAt(index)->getValue();
 }
 
@@ -123,7 +116,6 @@ template <typename T>
 void List<T>::setValue(std::size_t index, const T& value) {
     nodeAt(index)->setValue(value);
 }
-
 
 template <typename T>
 void List<T>::swap(List& other) noexcept {

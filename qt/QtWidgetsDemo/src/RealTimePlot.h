@@ -16,7 +16,7 @@ class RealTimePlot : public QChartView {
     Q_OBJECT
 
 public:
-    explicit RealTimePlot(QWidget *parent = nullptr);
+    explicit RealTimePlot(QWidget* parent = nullptr);
 
     // Добавить новую точку и сдвинуть окно просмотра.
     void addPoint(double y);
@@ -26,13 +26,13 @@ public:
 
     // Цвет кривой меняется на лету: берём текущее перо и меняем только цвет,
     // поэтому толщина (если её зададут отдельно) сохраняется.
-    void setCurveColor(const QColor &color);
+    void setCurveColor(const QColor& color);
 
 private:
-    QLineSeries *m_series = nullptr;
-    QValueAxis  *m_axisX  = nullptr;
-    QValueAxis  *m_axisY  = nullptr;
+    QLineSeries* m_series = nullptr;
+    QValueAxis* m_axisX = nullptr;
+    QValueAxis* m_axisY = nullptr;
 
-    double m_t      = 0;      // текущий X (счётчик точек)
-    int    m_window = 20;     // сколько точек видно одновременно
+    double m_t = 0;    // текущий X (счётчик точек)
+    int m_window = 20; // сколько точек видно одновременно
 };

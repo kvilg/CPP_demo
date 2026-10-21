@@ -3,7 +3,7 @@
 
 #include "List.h"
 
-void test(){
+void test() {
     List<int> list;
     list.add_last(1);
     list.add_last(2);
@@ -12,14 +12,13 @@ void test(){
 
     List<int> copy(list);
 
-    if(list.getValue(0) != copy.getValue(0)){
-        throw std::runtime_error("boom");;
+    if (list.getValue(0) != copy.getValue(0)) {
+        throw std::runtime_error("boom");
     }
     list.setValue(0, 44);
-    if(list.getValue(0) == copy.getValue(0)){
-        throw std::runtime_error("boom");;
+    if (list.getValue(0) == copy.getValue(0)) {
+        throw std::runtime_error("boom");
     }
-
 }
 
 int main() {

@@ -1,4 +1,3 @@
-
 #include <cstddef>
 
 template <typename T>
@@ -17,7 +16,7 @@ public:
     void add_start(const T& value);
 
     std::size_t getSize() const;
-    const T & getValue(std::size_t index);
+    const T& getValue(std::size_t index);
 
     void setValue(std::size_t index, const T& value);
 
@@ -54,5 +53,3 @@ private:
     Node* m_head = nullptr;
     Node* m_tail = nullptr;
 };
-
-
