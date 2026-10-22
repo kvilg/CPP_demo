@@ -4,6 +4,7 @@
 #include <QColor>
 #include <QColorDialog>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
@@ -75,6 +76,19 @@ int main(int argc, char* argv[]) {
     qtlog::install();
 
     QApplication app(argc, argv);
+
+    // Путь внутрь ресурсов, а не в файловую систему: в CMakeLists указан
+    // PREFIX "/" и BASE resources, поэтому resources/images/app-icon.svg
+    // лежит под :/images/app-icon.svg. Иконка попадает в сам бинарник,
+    // рядом с программой ничего класть не нужно.
+    //
+    // Ставим на QApplication, а не на окно: так её получат и диалоги,
+    // например выбор цвета.
+    //
+    // SVG рисует подключаемый модуль qsvgicon, его раскладывает
+    // windeployqt. Если он не доедет, QIcon промолчит и иконки просто
+    // не будет — ошибки не покажут.
+    app.setWindowIcon(QIcon(":/images/app-icon.svg"));
 
     QMainWindow w;
     auto* central = new QWidget;
