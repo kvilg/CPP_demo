@@ -12,11 +12,12 @@
 #include <QPushButton>
 #include <QTcpSocket>
 
-// QtConsole.h переносит сообщения Qt из отладчика в консоль и печатает
-// их в UTF-8. Console.h при этом переключает саму консоль на UTF-8.
 #include "Console.h"
 #include "QtConsole.h"
 
+// Пустышка: Qt здесь собран без QT_NAMESPACE, макрос не делает ничего
+// (об этом же написано в RealTimePlot.h). Либо он стоит ради сборки с
+// пространством имён — и тогда это стоит написать, — либо шум который стоит удалить.
 QT_USE_NAMESPACE
 
 // --- чего здесь не хватает по заданию ---
@@ -98,6 +99,8 @@ int main(int argc, char* argv[]) {
     auto* port = new QLineEdit("1234");
     auto* btn = new QPushButton("Подключиться");
     btn->setCursor(Qt::PointingHandCursor);
+    // ОШИБКА: этот виджет никуда не добавлен, на экране его нет.
+    // Родителя у него поэтому тоже нет — значит он и не будет удалён (утечка памяти).
     auto* log = new QPlainTextEdit;
     log->setReadOnly(true);
     log->setMaximumHeight(100);
@@ -139,12 +142,33 @@ int main(int argc, char* argv[]) {
     QTcpSocket s;
     QObject::connect(&s, &QTcpSocket::connected, [&] { btn->setText("Отключиться"); });
     QObject::connect(&s, &QTcpSocket::disconnected, [&] { btn->setText("Подключиться"); });
+    // Ошибка подключения не показывается никак: кнопка вернула надпись,
+    // и всё. Не тот адрес, нет сервера, занят порт — пользователь видит
+    // только, что она моргнула. Просится s.errorString() — в log или
+    // в QMessageBox.
     QObject::connect(&s, &QTcpSocket::errorOccurred, [&] { btn->setText("Подключиться"); });
 
     QObject::connect(&s, &QTcpSocket::readyRead, [&] {
         const QByteArray data = s.readAll();
+
+        // ОШИБКА: в лог идёт сырой кусок вместе с переводом строки,
+        // который там уже есть, а appendPlainText добавляет свой —
+        // получаются пустые строки через одну.
         log->appendPlainText(QString::fromUtf8(data));
 
+        // ОШИБКА, и серьёзная: здесь предполагается, что в одном
+        // readyRead лежат целые строки. TCP этого не обещает — это
+        // поток байт, а не сообщений. Число 42\n может прийти двумя
+        // кусками: сначала 4, потом 2\n. Тогда toDouble успешно
+        // разберёт 4, потом 2, и на графике окажутся две неверные
+        // точки вместо одной верной. Без ошибки, молча.
+        //
+        // Не стреляет только потому, что шлётся пара байт в секунду и
+        // всё помещается в один пакет. Увеличь частоту — поедет.
+        //
+        // Чинится накоплением: держать непрочитанный хвост между
+        // вызовами и отдавать на разбор только то, что до последнего
+        // перевода строки.
         for (const QByteArray& line : data.split('\n')) {
             bool ok = false;
             double y = line.trimmed().toDouble(&ok);
@@ -160,6 +184,10 @@ int main(int argc, char* argv[]) {
         } else {
             log->clear();
             plot->reset();
+            // Порт нигде не проверяется: toUShort() на нечисловом
+            // вводе вернёт 0, и попытка уйдёт на нулевой порт. Упадёт
+            // она молча — см. обработчик errorOccurred выше. В Qt для
+            // ввода чисел есть QIntValidator.
             s.connectToHost(host->text(), port->text().toUShort());
         }
     });
