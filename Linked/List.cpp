@@ -2,6 +2,11 @@
 #include <stdexcept>
 #include <utility>
 
+// Console.h нужен ради кодовой страницы: тесты печатают русские названия,
+// а консоль Windows по умолчанию в CP866 — кириллица вышла бы мусором.
+// Сами тесты лежат в этом же файле, поэтому подключение здесь.
+#include "Console.h"
+
 #include <doctest/doctest.h>
 
 // Определение Node. В List.h от него осталось только `class Node;` —
@@ -17,6 +22,8 @@ public:
     void setValue(const T& value);
 
     const T& getValue() const;
+
+    T &getValue();
 
     void setNext(Node* node);
 
@@ -35,6 +42,11 @@ private:
 template <ListElement T>
 void List<T>::Node::setValue(const T& value) {
     m_value = value;
+}
+
+template <ListElement T>
+T& List<T>::Node::getValue() {
+    return m_value;
 }
 
 template <ListElement T>
@@ -162,186 +174,479 @@ void List<T>::swap(List& other) noexcept {
 // удаляются.
 
 template <ListElement T>
-List<T>::List(List&& other) noexcept {
-    // TODO: реализовать
-    (void)other;
+List<T>::List(List&& other) noexcept
+        : m_size(other.m_size)
+        , m_head(other.m_head)
+        , m_tail(other.m_tail)
+{
+    other.m_head = nullptr;
+    other.m_tail = nullptr;
+    other.m_size = 0;
 }
 
 template <ListElement T>
 List<T>& List<T>::operator=(List&& other) noexcept {
-    // TODO: реализовать
-    (void)other;
+    if (this != &other) {
+        clear();
+        m_head = other.m_head;
+        m_tail = other.m_tail;
+        m_size = other.m_size;
+
+        other.m_head = nullptr;
+        other.m_tail = nullptr;
+        other.m_size = 0;
+    }
     return *this;
 }
 
 template <ListElement T>
 List<T>::List(std::initializer_list<T> values) {
-    (void)values;
-    throw std::logic_error("List::List(initializer_list) не реализован");
+    for (const T& x : values) {
+        addLast(x);
+    }
 }
 
 template <ListElement T>
 List<T>& List<T>::operator=(std::initializer_list<T> values) {
-    (void)values;
-    throw std::logic_error("List::operator=(initializer_list) не реализован");
+    clear();
+    for (const T& x : values) {
+        addLast(x);
+    }
+    return *this;
 }
 
 template <ListElement T>
 bool List<T>::isEmpty() const {
-    throw std::logic_error("List::isEmpty не реализован");
+    return getSize() == 0;
 }
 
 template <ListElement T>
 void List<T>::clear() {
-    throw std::logic_error("List::clear не реализован");
+    Node *def = m_head;
+    while (def){
+        Node *next = def->getNext();
+        delete def;
+        def = next;
+    }
+    m_head = m_tail = nullptr;
+    m_size = 0;
 }
 
 template <ListElement T>
 void List<T>::removeStart() {
-    throw std::logic_error("List::removeStart не реализован");
+    if(m_size == 0){
+        throw std::out_of_range("List::removeStart лист пустой");
+    }
+    if(m_size == 1){
+        delete m_head;
+        m_head = m_tail = nullptr;
+    } else {
+        Node *def = m_head;
+        m_head = def->getNext();
+        m_head->setPrev(nullptr);
+        delete def;
+    }
+    m_size--;
 }
 
 template <ListElement T>
 void List<T>::removeLast() {
-    throw std::logic_error("List::removeLast не реализован");
+    if(m_size == 0){
+        throw std::out_of_range("List::removeStart out_of_range");
+    }
+    if(m_size == 1){
+        delete m_tail;
+        m_head = m_tail = nullptr;
+    } else {
+        Node *def = m_tail;
+        m_tail = def->getPrev();
+        m_tail->setNext(nullptr);
+        delete def;
+    }
+    m_size--;
 }
 
 template <ListElement T>
 void List<T>::insert(std::size_t index, const T& value) {
-    (void)index;
-    (void)value;
-    throw std::logic_error("List::insert не реализован");
+    if(index > m_size){
+        throw std::out_of_range("List::removeStart out_of_range");
+    }
+    if(index == 0){
+        addStart(value);
+        return;
+    }
+    if(index == m_size){
+        addLast(value);
+        return;
+    }
+    Node *node = m_head;
+    for (std::size_t i = 0; i < index - 1; i++) {
+        node = node->getNext();
+    }
+    Node *next_def = node;
+    next_def = next_def->getNext();
+    Node *insert_n = new Node(value);
+
+    insert_n->setPrev(node);
+    insert_n->setNext(next_def);
+
+    node->setNext(insert_n);
+    next_def->setPrev(insert_n);
+    m_size++;
+
 }
 
 template <ListElement T>
 void List<T>::removeAt(std::size_t index) {
-    (void)index;
-    throw std::logic_error("List::removeAt не реализован");
+    if(index >= m_size){
+        throw std::out_of_range("List::removeAt out_of_range");
+    }
+    if(index == 0){
+        removeStart();
+        return;
+    }
+    if(index == m_size-1){
+        removeLast();
+        return;
+    }
+    Node *node = m_head;
+    for (std::size_t i = 0; i < index; i++) {
+        node = node->getNext();
+    }
+    Node* pre = node->getPrev();
+    Node* delet_node = node;
+    Node* next = node->getNext();
+
+
+    pre->setNext(next);
+    next->setPrev(pre);
+    m_size--;
+    delete delet_node;
+
 }
 
 template <ListElement T>
 const T& List<T>::at(std::size_t index) const {
     (void)index;
-    throw std::logic_error("List::at не реализован");
+    if(index >= m_size){
+        throw std::out_of_range("List::at out_of_range");
+    }
+    Node *node = m_head;
+    for (std::size_t i = 0; i < index; i++) {
+        node = node->getNext();
+    }
+    return node->getValue();
 }
 
 template <ListElement T>
 bool List<T>::operator==(const List& other) const
     requires std::equality_comparable<T>
 {
-    (void)other;
-    throw std::logic_error("List::operator== не реализован");
+    if(other.isEmpty() && isEmpty()){
+        return true;
+    }
+    if(other.getSize() != getSize()){
+        return false;
+    }
+
+    Node *node = m_head;
+    Node *node_other = other.m_head;
+
+    for (size_t i = 0; i< getSize();i++) {
+        if(node->getValue() != node_other->getValue()){
+            return false;
+        }
+        node = node->getNext();
+        node_other = node_other->getNext();
+    }
+    return true;
 }
 
 template <ListElement T>
 T& List<T>::getStart() {
-    throw std::logic_error("List::getStart не реализован");
+    if (m_size == 0) {
+        throw std::out_of_range("List::getStart: list is empty");
+    }
+    return m_head->getValue();
 }
 
 template <ListElement T>
 const T& List<T>::getStart() const {
-    throw std::logic_error("List::getStart (const) не реализован");
+    if (m_size == 0) {
+        throw std::out_of_range("List::getStart: list is empty");
+    }
+    return m_head->getValue();
 }
 
 template <ListElement T>
 T& List<T>::getLast() {
-    throw std::logic_error("List::getLast не реализован");
+    if (m_size == 0) {
+        throw std::out_of_range("List::getStart: list is empty");
+    }
+    return m_tail->getValue();
 }
 
 template <ListElement T>
 const T& List<T>::getLast() const {
-    throw std::logic_error("List::getLast (const) не реализован");
+    if (m_size == 0) {
+        throw std::out_of_range("List::getStart: list is empty");
+    }
+    return m_tail->getValue();
 }
 
 template <ListElement T>
 void List<T>::removeValue(const T& value)
     requires std::equality_comparable<T>
 {
-    (void)value;
-    throw std::logic_error("List::removeValue не реализован");
+    Node* cur = m_head;
+    while (cur) {
+        Node* next = cur->getNext();
+        if (cur->getValue() == value) {
+            Node* prev = cur->getPrev();
+            if (prev) {
+                prev->setNext(next);
+            }
+            else {
+                m_head = next;
+            }
+            if (next) {
+                next->setPrev(prev);
+            }
+            else {
+                m_tail = prev;
+            }
+            delete cur;
+            --m_size;
+        }
+        cur = next;
+    }
 }
 
 template <ListElement T>
 void List<T>::reverse() {
-    throw std::logic_error("List::reverse не реализован");
+    for (size_t i = 0;i < getSize()/2; i++) {
+        Node *node_strat = m_head;
+        Node *node_tail = m_tail;
+
+        T def = node_strat->getValue();
+        node_strat->setValue(node_tail->getValue());
+        node_tail->setValue(def);
+    }
 }
 
 template <ListElement T>
 void List<T>::sort()
     requires std::totally_ordered<T>
 {
-    throw std::logic_error("List::sort не реализован");
+    for (size_t i = 0; i < getSize()-i; ++i) {
+        Node *node = m_head;
+        Node *node_next = m_head->getNext();
+        for (size_t j = 0; j < getSize()-1; ++j) {
+            if(node->getValue() > node_next->getValue()){
+                T def = node->getValue();
+                node->setValue(node_next->getValue());
+                node_next->setValue(def);
+            }
+            node = node->getNext();
+            node_next = node_next->getNext();
+        }
+    }
 }
 
 template <ListElement T>
 std::compare_three_way_result_t<T> List<T>::operator<=>(const List& other) const
     requires std::three_way_comparable<T>
 {
-    (void)other;
-    throw std::logic_error("List::operator<=> не реализован");
+    Node *node = m_head;
+    Node *node_other = other.m_head;
+
+    while (node != nullptr && node_other != nullptr) {
+        auto cmp = node->getValue() <=> node_other->getValue();
+        if(cmp != 0){
+            return cmp;
+        }
+        node = node->getNext();
+        node_other = node_other->getNext();
+    }
+
+    return getSize() <=> other.getSize();
 }
 
 template <ListElement T>
 void List<T>::assign(std::size_t count, const T& value) {
-    (void)count;
-    (void)value;
-    throw std::logic_error("List::assign (count, value) не реализован");
+    clear();
+    for (size_t i = 0; i < count; ++i) {
+        addLast(value);
+    }
 }
 
 template <ListElement T>
 void List<T>::assign(std::initializer_list<T> values) {
-    (void)values;
-    throw std::logic_error("List::assign (initializer_list) не реализован");
+    clear();
+    for (const T& x : values) {
+        addLast(x);
+    }
+
 }
 
 template <ListElement T>
 void List<T>::resize(std::size_t count)
     requires std::default_initializable<T>
 {
-    (void)count;
-    throw std::logic_error("List::resize (count) не реализован");
+    if(count == 0){
+        clear();
+    }
+    size_t size = getSize();
+    if(size > count) {
+        for (size_t i = 0; i < size - count; ++i) {
+            removeLast();
+        }
+    }
+    if(size < count) {
+        for (size_t i = 0; i < count - size; i++) {
+            addLast(0);
+        }
+    }
 }
 
 template <ListElement T>
 void List<T>::resize(std::size_t count, const T& value) {
-    (void)count;
-    (void)value;
-    throw std::logic_error("List::resize (count, value) не реализован");
+    if(count == 0){
+        clear();
+    }
+    size_t size = getSize();
+    if(size > count) {
+        for (size_t i = 0; i < size - count; ++i) {
+            removeLast();
+        }
+    }
+    if(size < count) {
+        for (size_t i = 0; i < count - size; i++) {
+            addLast(value);
+        }
+    }
 }
 
 template <ListElement T>
 void List<T>::unique()
     requires std::equality_comparable<T>
 {
-    throw std::logic_error("List::unique не реализован");
+    if (m_head == nullptr)
+        return;
+
+    Node* node = m_head;
+    while (node->getNext() != nullptr) {
+        Node* next = node->getNext();
+        if (next->getValue() == node->getValue()) {
+            node->setNext(next->getNext());
+            next->setPrev(node);
+            delete next;
+            --m_size;
+            if (next == m_tail)
+                m_tail = node;
+        } else {
+            node = next;
+        }
+    }
 }
 
 template <ListElement T>
 void List<T>::merge(List& other)
     requires std::totally_ordered<T>
 {
-    (void)other;
-    throw std::logic_error("List::merge не реализован");
+    if (this == &other || other.m_head == nullptr) {
+        return;
+    }
+
+    if (m_head == nullptr) {
+        m_head = other.m_head;
+        m_tail = other.m_tail;
+        m_size = other.m_size;
+
+        other.m_head = other.m_tail = nullptr;
+        other.m_size = 0;
+        return;
+    }
+
+    Node* a = m_head;
+    Node* b = other.m_head;
+
+    Node* new_head = nullptr;
+    Node* new_tail = nullptr;
+
+    auto append = [&](Node* n) {
+        if (new_head == nullptr) {
+            new_head = new_tail = n;
+        } else {
+            new_tail->setNext(n);
+            new_tail = n;
+        }
+    };
+
+    while (a != nullptr && b != nullptr) {
+        if (b->getValue() < a->getValue()) {
+            Node* nb = b->getNext();
+            append(b);
+            b = nb;
+        } else {
+            Node* na = a->getNext();
+            append(a);
+            a = na;
+        }
+    }
+    while (a != nullptr) {
+        Node* na = a->getNext();
+        append(a);
+        a = na;
+    }
+    while (b != nullptr) {
+        Node* nb = b->getNext();
+        append(b);
+        b = nb;
+    }
+
+    new_tail->setNext(nullptr);
+
+    m_head = new_head;
+    m_tail = new_tail;
+    m_size += other.m_size;
+
+    other.m_head = other.m_tail = nullptr;
+    other.m_size = 0;
 }
 
 template <ListElement T>
 template <typename... Args>
     requires std::constructible_from<T, Args...>
 T& List<T>::emplaceLast(Args&&... args) {
-    // Свёртка по запятой: раскрывается в ((void) a1, (void) a2, ...) и
-    // упоминает каждый аргумент. sizeof...(args) здесь не годится — он
-    // спрашивает только размер пачки, а сами параметры остаются
-    // неиспользованными, и MSVC выдаёт на них C4100.
-    ((void)args, ...);
-    throw std::logic_error("List::emplaceLast не реализован");
+    Node* node = new Node(std::forward<Args>(args)...);
+
+    if (m_tail != nullptr) {
+        m_tail->setNext(node);
+    } else {
+        m_head = node;
+    }
+    m_tail = node;
+    ++m_size;
+
+    return node->getValue();
 }
 
 template <ListElement T>
 template <typename... Args>
     requires std::constructible_from<T, Args...>
 T& List<T>::emplaceStart(Args&&... args) {
-    ((void)args, ...);
-    throw std::logic_error("List::emplaceStart не реализован");
+    Node* node = new Node(std::forward<Args>(args)...);
+
+    node->setNext(m_head);
+
+    if (m_head == nullptr) {
+        m_tail = node;
+    }
+    m_head = node;
+    ++m_size;
+
+    return node->getValue();
 }
 
 // --- итератор ---
@@ -354,52 +659,57 @@ List<T>::Iterator::Iterator(Node* node) : m_node(node) {}
 
 template <ListElement T>
 T& List<T>::Iterator::operator*() const {
-    throw std::logic_error("List::Iterator::operator* не реализован");
+    return m_node->getValue();
 }
 
 template <ListElement T>
 T* List<T>::Iterator::operator->() const {
-    throw std::logic_error("List::Iterator::operator-> не реализован");
+    return &m_node->getValue();
 }
 
 template <ListElement T>
 typename List<T>::Iterator& List<T>::Iterator::operator++() {
-    throw std::logic_error("List::Iterator::operator++ не реализован");
+    m_node = m_node->getNext();
+    return *this;
 }
 
 template <ListElement T>
 typename List<T>::Iterator List<T>::Iterator::operator++(int) {
-    throw std::logic_error("List::Iterator::operator++(int) не реализован");
+    Iterator tmp = *this;
+    m_node = m_node->getNext();
+    return tmp;
 }
 
 template <ListElement T>
 typename List<T>::Iterator& List<T>::Iterator::operator--() {
-    throw std::logic_error("List::Iterator::operator-- не реализован");
+    m_node = m_node->getPrev();
+    return *this;
 }
 
 template <ListElement T>
 typename List<T>::Iterator List<T>::Iterator::operator--(int) {
-    throw std::logic_error("List::Iterator::operator--(int) не реализован");
+    Iterator tmp = *this;
+    m_node = m_node->getPrev();
+    return tmp;
 }
 
 template <ListElement T>
 bool List<T>::Iterator::operator==(const Iterator& other) const {
-    (void)other;
-    throw std::logic_error("List::Iterator::operator== не реализован");
+    return m_node == other.m_node;
 }
 
 template <ListElement T>
 typename List<T>::Iterator List<T>::begin() {
-    throw std::logic_error("List::begin не реализован");
+    return Iterator(m_head);
 }
 
 template <ListElement T>
 typename List<T>::Iterator List<T>::end() {
-    throw std::logic_error("List::end не реализован");
+    return Iterator(nullptr);
 }
 
 template class List<int>;
-
+template class List<double>;
 // --- тесты ---
 //
 // Лежат рядом с реализацией: так задуман doctest. В цели Linked они

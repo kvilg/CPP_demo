@@ -3,16 +3,21 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 
-#ifdef Q_OS_WIN
+#include <chrono>
+#include <cstdlib>
 #include <thread>
-#include <windows.h>
 
-#endif
+// Console.h переключает консоль на UTF-8 при старте программы: без этого
+// русские сообщения qInfo/qWarning выходят мусором (исходники в UTF-8,
+// а консоль Windows по умолчанию в CP866).
+#include "Console.h"
+
+// QtConsole.h переносит сообщения Qt из отладчика в консоль и печатает
+// их в UTF-8 — иначе на Windows в консоли просто пусто.
+#include "QtConsole.h"
 
 int main(int argc, char* argv[]) {
-#ifdef Q_OS_WIN
-    SetConsoleOutputCP(CP_UTF8);
-#endif
+    qtlog::install();
 
     QCoreApplication app(argc, argv);
 

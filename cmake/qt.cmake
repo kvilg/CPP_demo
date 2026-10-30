@@ -107,6 +107,13 @@ function(cpp_demo_qt_app target)
     target_include_directories(${target} PRIVATE src)
     target_link_libraries(${target} PRIVATE project_warnings)
 
+    # Console.h: переключает консоль на UTF-8, иначе русские сообщения
+    # qInfo/qWarning выходят мусором. Код страницы ставится один раз при
+    # старте программы, отдельного вызова не нужно.
+    if(TARGET project_console)
+        target_link_libraries(${target} PRIVATE project_console)
+    endif()
+
     # WIN32_EXECUTABLE FALSE: нужна консоль, чтобы был виден qDebug/qWarning
     # FOLDER — только для дерева проекта в IDE, на сборку не влияет
     set_target_properties(${target} PROPERTIES

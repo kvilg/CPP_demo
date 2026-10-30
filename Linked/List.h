@@ -115,9 +115,7 @@ public:
     // исключение из неё означало бы std::terminate — вместо красного
     // теста упал бы весь прогон.
     friend void swap(List& a, List& b) noexcept {
-        // TODO: реализовать
-        (void)a;
-        (void)b;
+        a.swap(b);
     }
 
     // --- упражнения ---

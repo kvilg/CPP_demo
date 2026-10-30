@@ -11,9 +11,16 @@
 #include <QPushButton>
 #include <QTcpSocket>
 
+// QtConsole.h переносит сообщения Qt из отладчика в консоль и печатает
+// их в UTF-8. Console.h при этом переключает саму консоль на UTF-8.
+#include "Console.h"
+#include "QtConsole.h"
+
 QT_USE_NAMESPACE
 
 int main(int argc, char* argv[]) {
+    qtlog::install();
+
     QApplication app(argc, argv);
 
     QMainWindow w;

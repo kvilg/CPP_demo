@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Проект собирается и как часть корневого CPP_demo, и сам по себе.
 # В первом случае зависимости и цели с флагами уже готовы, во втором
 # подключаем те же модули из ../cmake.
-if(NOT TARGET doctest::doctest OR NOT TARGET project_warnings)
+if(NOT TARGET doctest::doctest OR NOT TARGET project_warnings OR NOT TARGET project_console)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 endif()
 if(NOT TARGET doctest::doctest)
@@ -15,6 +15,9 @@ if(NOT TARGET doctest::doctest)
 endif()
 if(NOT TARGET project_warnings)
     include(CompilerOptions)
+endif()
+if(NOT TARGET project_console)
+    include(Console)
 endif()
 
 # Тесты живут в List.cpp. Здесь они вырезаются препроцессором:
@@ -27,6 +30,7 @@ add_executable(Linked main.cpp
 target_compile_definitions(Linked PRIVATE DOCTEST_CONFIG_DISABLE)
 target_link_libraries(Linked PRIVATE
         doctest::doctest
+        project_console
         project_warnings)
 
 # --- демонстрация: цель, которая намеренно не линкуется ---
@@ -43,6 +47,7 @@ add_executable(Linked_double EXCLUDE_FROM_ALL main_double.cpp
 target_compile_definitions(Linked_double PRIVATE DOCTEST_CONFIG_DISABLE)
 target_link_libraries(Linked_double PRIVATE
         doctest::doctest
+        project_console
         project_warnings)
 
 # --- тесты ---
@@ -54,6 +59,7 @@ enable_testing()
 add_executable(Linked_tests List.cpp)
 target_link_libraries(Linked_tests PRIVATE
         doctest::doctest_with_main
+        project_console
         project_warnings
         project_coverage)
 

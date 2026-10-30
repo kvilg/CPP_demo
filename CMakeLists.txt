@@ -25,6 +25,9 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # включая doctest, который приедет ниже через CPM.
 include(CompilerOptions)
 
+# Консольный лог: common/Console.h. UTF-8 в консоли и сообщения по-русски.
+include(Console)
+
 # CPM и doctest — один раз на все подпроекты
 include(dependencies)
 
