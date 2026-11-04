@@ -20,34 +20,29 @@ concept ListElement = std::copy_constructible<T> && std::assignable_from<T&, con
 
 // --- про const-корректность ---
 //
-// Правило простое: метод, который только читает, должен быть const,
-// иначе его не вызвать по const List&. Всё, что читает, здесь const —
-// getSize, isEmpty, at, operator==, operator<=> — кроме трёх мест.
+// Метод, который только читает, должен быть const, иначе его не вызвать
+// по const List&. Не хватает таких:
 //
-// 1. getValue сломан в обе стороны сразу:
+// 1. Пары getValue, как у getStart и getLast. Сейчас одна сигнатура,
+//    const T& getValue(std::size_t): метод неконстантный, возврат
+//    константный. Нужны
+//        T& getValue(std::size_t);
+//        const T& getValue(std::size_t) const;
+//    Для константной — const Node* nodeAt(std::size_t) const.
 //
-//        const T& getValue(std::size_t index);
+// 2. Неконстантного at. Есть только const T& at(std::size_t) const,
+//    поэтому list.at(0) = 5 не собрать. Нужен
+//        T& at(std::size_t);
 //
-//    метод неконстантный, а возврат константный. На const List& его не
-//    позвать, и изменить через него тоже нельзя — взял ограничения
-//    обоих вариантов, не дав преимуществ ни одного. Как надо, видно
-//    рядом у getStart и getLast: пара из T& и const T&.
-//
-// 2. У begin() и end() нет константных версий, поэтому по const List&
-//    нельзя пройтись вообще. Лечится не словом const, а отдельным
-//    ConstIterator — он в списке следующих шагов.
-//
-// 3. А вот это выглядит ошибкой, но ею не является:
-//
-//        reference operator*() const;   // reference == T&
-//
-//    константный метод отдаёт неконстантную ссылку. Для обычного
-//    класса это красный флаг, для итератора — норма: const у итератора
-//    относится к нему самому, а не к тому, на что он указывает. Как
-//    T* const против const T*: сдвинуть нельзя, элемент менять можно.
-//    Поэтому *it = 42 работает и через const Iterator, и поэтому для
-//    «менять нельзя» заводят ConstIterator, а не константный Iterator.
+// 3. Константных begin и end. По const List& пройтись нельзя.
+//    const у Iterator не поможет: его operator* константный и возвращает
+//    T&, const относится к итератору, а не к элементу. Нужен отдельный
+//    ConstIterator и
+//        ConstIterator begin() const;
+//        ConstIterator end() const;
 
+// не хватает const методов: getValue, begin, end, nodeAt
+// и non-const: getValue, at
 template <ListElement T>
 class List {
 private:
