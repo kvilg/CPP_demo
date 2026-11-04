@@ -45,17 +45,20 @@ private:
 };
 
 template <ListElement T>
+List<T>::Node::Node(const T& value) : m_value(value) {}
+
+template <ListElement T>
 void List<T>::Node::setValue(const T& value) {
     m_value = value;
 }
 
 template <ListElement T>
-T& List<T>::Node::getValue() {
+const T& List<T>::Node::getValue() const {
     return m_value;
 }
 
 template <ListElement T>
-const T& List<T>::Node::getValue() const {
+T& List<T>::Node::getValue() {
     return m_value;
 }
 
@@ -79,21 +82,9 @@ typename List<T>::Node* List<T>::Node::getPrev() const {
     return m_prev;
 }
 
-template <ListElement T>
-List<T>::Node::Node(const T& value) : m_value(value) {}
-
 ////////////////////////////////////////////////////////////////////////////////
 /// List
 ////////////////////////////////////////////////////////////////////////////////
-
-template <ListElement T>
-typename List<T>::Node* List<T>::nodeAt(std::size_t index) {
-    Node* cur = m_head;
-    for (std::size_t i = 0; i < index && cur != nullptr; ++i) {
-        cur = cur->getNext();
-    }
-    return cur;
-}
 
 template <ListElement T>
 List<T>::List(const List& other) {
@@ -701,6 +692,15 @@ typename List<T>::Iterator List<T>::begin() {
 template <ListElement T>
 typename List<T>::Iterator List<T>::end() {
     return Iterator(nullptr);
+}
+
+template <ListElement T>
+typename List<T>::Node* List<T>::nodeAt(std::size_t index) {
+    Node* cur = m_head;
+    for (std::size_t i = 0; i < index && cur != nullptr; ++i) {
+        cur = cur->getNext();
+    }
+    return cur;
 }
 
 template class List<int>;
