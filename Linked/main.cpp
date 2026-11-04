@@ -4,13 +4,8 @@
 // common/Console.h. Он же переключает консоль на UTF-8 — без этого
 // кириллица выводится мусором: исходники в UTF-8, а консоль Windows
 // по умолчанию в CP866.
-//
-// Показываем только то, что уже реализовано. Остальные методы (isEmpty,
-// clear, insert, sort и прочие) — это упражнения: они объявлены, но тела
-// ещё нет, и вызов бросает std::logic_error. Список задач — в README.md.
 
 #include <cstddef>
-#include <exception>
 #include <sstream>
 #include <string>
 
@@ -93,14 +88,6 @@ int main() {
     left.swap(right);
     printList("После swap: left", left);
     printList("После swap: right", right);
-
-    // Заглушки бросают std::logic_error — показываем, как это выглядит
-    // в логе.
-    try {
-        list.at(0);
-    } catch (const std::exception& error) {
-        console::warning("at(0) пока не реализован: ", error.what());
-    }
 
     console::info("=== Готово ===");
     return 0;

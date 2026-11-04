@@ -165,14 +165,6 @@ void List<T>::swap(List& other) noexcept {
     std::swap(m_tail, other.m_tail);
 }
 
-// --- упражнения: заглушки ---
-//
-// Реализовать и довести до зелёного тесты "exercise: ..." ниже.
-//
-// (void) перед throw — чтобы -Wunused-parameter с -Werror не завалил
-// сборку на неиспользованном аргументе. Когда напишешь тело, эти строки
-// удаляются.
-
 template <ListElement T>
 List<T>::List(List&& other) noexcept
         : m_size(other.m_size)
@@ -327,7 +319,6 @@ void List<T>::removeAt(std::size_t index) {
 
 template <ListElement T>
 const T& List<T>::at(std::size_t index) const {
-    (void)index;
     if(index >= m_size){
         throw std::out_of_range("List::at out_of_range");
     }
@@ -649,11 +640,6 @@ T& List<T>::emplaceStart(Args&&... args) {
     return node->getValue();
 }
 
-// --- итератор ---
-//
-// Конструктор настоящий, он тут ничего не решает. Всё остальное —
-// заглушки, и это и есть упражнение.
-
 template <ListElement T>
 List<T>::Iterator::Iterator(Node* node) : m_node(node) {}
 
@@ -710,13 +696,32 @@ typename List<T>::Iterator List<T>::end() {
 
 template class List<int>;
 template class List<double>;
+
+struct ResizeDefaultValue {
+    int value = 42;
+    int extra = 0;
+    inline static int copies = 0;
+
+    ResizeDefaultValue() = default;
+    ResizeDefaultValue(int value) : value(value) {}
+    ResizeDefaultValue(int value, int extra) : value(value), extra(extra) {}
+    ResizeDefaultValue(const ResizeDefaultValue& other) : value(other.value), extra(other.extra) {
+        ++copies;
+    }
+    ResizeDefaultValue& operator=(const ResizeDefaultValue&) = default;
+
+    auto operator<=>(const ResizeDefaultValue&) const = default;
+};
+
+#ifndef DOCTEST_CONFIG_DISABLE
+template class List<ResizeDefaultValue>;
+#endif
 // --- тесты ---
 //
 // Лежат рядом с реализацией: так задуман doctest. В цели Linked они
 // вырезаются препроцессором (DOCTEST_CONFIG_DISABLE), в бинарник не
 // попадают; цель Linked_tests собирает этот же файл с тестами.
 //
-// Проверяется только List<int>: выше явно инстанцирован лишь он.
 // Доступ к приватному Node у TEST_CASE нет — это свободные функции,
 // а не члены класса; для тестов на внутренности нужен friend в List.h.
 
@@ -962,14 +967,6 @@ TEST_CASE("список держит много элементов в прави
     CHECK(list.getValue(50) == 50);
     CHECK(list.getValue(99) == 99);
 }
-
-// --- упражнения: тесты, которые должны стать зелёными ---
-//
-// Сейчас они падают: методы объявлены, но не реализованы. Это и есть
-// задание — реализовать и добиться зелёного.
-//
-// Только эти:    ctest --preset debug -R exercise
-// Только готовые: ctest --preset debug -E exercise
 
 TEST_CASE("exercise: isEmpty") {
     List<int> list;
@@ -1304,6 +1301,35 @@ TEST_CASE("exercise: reverse разворачивает порядок") {
     CHECK(list.getValue(2) == 1);
 }
 
+TEST_CASE("exercise: reverse разворачивает четыре элемента") {
+    List<int> list{1, 2, 3, 4};
+
+    list.reverse();
+
+    REQUIRE(list.getSize() == 4);
+    CHECK(list.getValue(0) == 4);
+    CHECK(list.getValue(1) == 3);
+    CHECK(list.getValue(2) == 2);
+    CHECK(list.getValue(3) == 1);
+}
+
+TEST_CASE("exercise: reverse переставляет узлы, а не значения") {
+    List<int> list{1, 2, 3};
+    auto it = list.begin();
+    int* first = &*it;
+    ++it;
+    ++it;
+    int* last = &*it;
+
+    list.reverse();
+
+    auto reversed = list.begin();
+    CHECK(&*reversed == last);
+    ++reversed;
+    ++reversed;
+    CHECK(&*reversed == first);
+}
+
 TEST_CASE("exercise: reverse переставляет и голову, и хвост") {
     List<int> list;
     list.addLast(1);
@@ -1347,6 +1373,18 @@ TEST_CASE("exercise: sort упорядочивает элементы") {
     CHECK(list.getValue(0) == 1);
     CHECK(list.getValue(1) == 2);
     CHECK(list.getValue(2) == 3);
+}
+
+TEST_CASE("exercise: sort упорядочивает четыре элемента") {
+    List<int> list{4, 3, 2, 1};
+
+    list.sort();
+
+    REQUIRE(list.getSize() == 4);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+    CHECK(list.getValue(2) == 3);
+    CHECK(list.getValue(3) == 4);
 }
 
 TEST_CASE("exercise: sort оставляет голову и хвост согласованными") {
@@ -1483,6 +1521,18 @@ TEST_CASE("exercise: assign из списка инициализации") {
     CHECK(list.getValue(2) == 3);
 }
 
+TEST_CASE("exercise: assign сохраняет значение, если оно ссылается на элемент списка") {
+    List<int> list{7, 8, 9};
+    const int& value = list.getStart();
+
+    list.assign(3, value);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 7);
+    CHECK(list.getValue(1) == 7);
+    CHECK(list.getValue(2) == 7);
+}
+
 TEST_CASE("exercise: assign нулевой длины очищает список") {
     List<int> list;
     list.addLast(1);
@@ -1519,6 +1569,18 @@ TEST_CASE("exercise: resize удлиняет значением по умолч�
     CHECK(list.getValue(0) == 1);
     CHECK(list.getValue(1) == 0);
     CHECK(list.getValue(2) == 0);
+}
+
+TEST_CASE("exercise: resize без значения добавляет T по умолчанию") {
+    List<ResizeDefaultValue> list;
+    list.addLast(ResizeDefaultValue{7});
+
+    list.resize(3);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0).value == 7);
+    CHECK(list.getValue(1).value == 42);
+    CHECK(list.getValue(2).value == 42);
 }
 
 TEST_CASE("exercise: resize удлиняет заданным значением") {
@@ -1563,6 +1625,18 @@ TEST_CASE("exercise: unique убирает подряд идущие дубли�
     CHECK(list.getValue(2) == 1);
 }
 
+TEST_CASE("exercise: unique сохраняет ссылки назад после удаления дубликатов") {
+    List<int> list{1, 1, 2, 3};
+    int* first = &*list.begin();
+
+    list.unique();
+
+    auto it = list.begin();
+    ++it;
+    --it;
+    CHECK(&*it == first);
+}
+
 TEST_CASE("exercise: unique на пустом и без дубликатов") {
     List<int> empty;
     empty.unique();
@@ -1596,6 +1670,20 @@ TEST_CASE("exercise: merge сливает два отсортированных 
 
     // источник опустошается: узлы перецеплены, а не скопированы
     CHECK(b.getSize() == 0);
+}
+
+TEST_CASE("exercise: merge сохраняет ссылки назад") {
+    List<int> a{1, 3};
+    List<int> b{2, 4};
+
+    a.merge(b);
+
+    auto it = a.begin();
+    ++it;
+    ++it;
+    CHECK(*it == 3);
+    --it;
+    CHECK(*it == 2);
 }
 
 TEST_CASE("exercise: merge с пустым списком") {
@@ -1632,6 +1720,53 @@ TEST_CASE("exercise: emplaceLast и emplaceStart") {
     // возвращается ссылка на сам элемент, а не копия
     last = 20;
     CHECK(list.getValue(1) == 20);
+}
+
+TEST_CASE("exercise: emplaceLast конструирует элемент из переданных аргументов") {
+    List<ResizeDefaultValue> list;
+    ResizeDefaultValue::copies = 0;
+
+    ResizeDefaultValue& value = list.emplaceLast(7);
+
+    CHECK(value.value == 7);
+    CHECK(ResizeDefaultValue::copies == 0);
+}
+
+TEST_CASE("exercise: emplaceLast с несколькими аргументами конструктора") {
+    ResizeDefaultValue value(7, 42);
+    CHECK(value.value == 7);
+    CHECK(value.extra == 42);
+
+    // List<ResizeDefaultValue> list;
+    // ResizeDefaultValue& emplaced = list.emplaceLast(7, 42);
+    // CHECK(emplaced.value == 7);
+    // CHECK(emplaced.extra == 42);
+}
+
+TEST_CASE("exercise: emplaceLast связывает новый узел с предыдущим хвостом") {
+    List<int> list;
+    list.emplaceLast(1);
+    list.emplaceLast(2);
+
+    list.removeLast();
+    list.addLast(3);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 3);
+}
+
+TEST_CASE("exercise: emplaceStart задаёт обратную ссылку для removeLast") {
+    List<int> list;
+    list.emplaceLast(2);
+    list.emplaceStart(1);
+
+    list.removeLast();
+    list.addLast(3);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 3);
 }
 
 // --- упражнения: итератор ---
@@ -1702,6 +1837,15 @@ TEST_CASE("exercise: итератор ходит назад") {
     const int before = *(it--);
     CHECK(before == 2);
     CHECK(*it == 1);
+}
+
+TEST_CASE("exercise: декремент end приводит к последнему элементу") {
+    List<int> list{1, 2, 3};
+    auto it = list.end();
+
+    --it;
+
+    CHECK(*it == 3);
 }
 
 TEST_CASE("exercise: через итератор можно менять элемент") {
