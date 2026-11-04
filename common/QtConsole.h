@@ -26,6 +26,7 @@
 // После этого qInfo, qWarning и сообщения самого Qt идут в консоль в том
 // же формате, что и лог из common/Console.h: [12:34:56] [ИНФО] сообщение.
 
+#include <QtCore/qbytearray.h>
 #include <QtCore/qlogging.h>
 #include <QtCore/qstring.h>
 
@@ -40,9 +41,11 @@ inline void messageHandler(QtMsgType type, const QMessageLogContext& context, co
     // места, где оно возникло.
     (void)context;
 
-    // Именно qUtf8Printable, а не qPrintable: первый даёт UTF-8, второй —
-    // байты в локали, и русский текст в них не выживает.
-    const char* text = qUtf8Printable(message);
+    // toUtf8(), а не qUtf8Printable: макрос — это toUtf8().constData(),
+    // временный QByteArray умирает в конце строки, и указатель остаётся
+    // висячим. qPrintable ещё и кодирует в локаль, русский текст в ней не выживает.
+    const QByteArray encoded = message.toUtf8();
+    const char* text = encoded.constData();
 
     switch (type) {
         case QtDebugMsg:
