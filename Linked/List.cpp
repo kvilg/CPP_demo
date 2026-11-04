@@ -722,8 +722,47 @@ struct ResizeDefaultValue {
     auto operator<=>(const ResizeDefaultValue&) const = default;
 };
 
+// Бросает из копирования и присваивания, когда copiesLeft дошёл до нуля.
+// copiesLeft < 0 — не бросать. Счётчик alive ловит утечку узла.
+struct Thrower {
+    int value = 0;
+    inline static int alive = 0;
+    inline static int copies = 0;
+    inline static int copiesLeft = -1;
+
+    explicit Thrower(int value) : value(value) { ++alive; }
+
+    Thrower(const Thrower& other) : value(other.value) {
+        if (copiesLeft == 0) {
+            throw std::runtime_error("Thrower copy");
+        }
+        if (copiesLeft > 0) {
+            --copiesLeft;
+        }
+        ++copies;
+        ++alive;
+    }
+
+    Thrower& operator=(const Thrower& other) {
+        if (copiesLeft == 0) {
+            throw std::runtime_error("Thrower assign");
+        }
+        if (copiesLeft > 0) {
+            --copiesLeft;
+        }
+        value = other.value;
+        ++copies;
+        return *this;
+    }
+
+    ~Thrower() { --alive; }
+
+    auto operator<=>(const Thrower&) const = default;
+};
+
 #ifndef DOCTEST_CONFIG_DISABLE
 template class List<ResizeDefaultValue>;
+template class List<Thrower>;
 #endif
 // --- тесты ---
 //
@@ -1971,4 +2010,244 @@ TEST_CASE("exercise: свободный swap с пустым списком") {
     empty.addLast(6);
     CHECK(filled.getValue(0) == 5);
     CHECK(empty.getValue(1) == 6);
+}
+
+// --- гарантии исключений ---
+//
+// Три уровня, если копирование или присваивание T бросает. Деструктор T
+// считаем небросающим: из noexcept-операции такое исключение завершит программу.
+//
+// 1. nothrow. swap, конструктор перемещения и перемещающее присваивание не
+// бросают: узлы перецепляются, элементы не копируются.
+//
+// 2. Строгая. Исключение — и список как до вызова, лишнего элемента нет.
+// addLast, addStart, insert и emplace* создают узел до вцепления.
+// Копирование и копирующее присваивание собирают копию отдельно и
+// обменивают её через swap. setValue добавляет только то, что обещает
+// присваивание самого T.
+//
+// 3. Базовая. Список после исключения живой: размер сходится с узлами,
+// вставка дальше работает, утечки нет. Старое содержимое не обещано.
+// assign, присваивание из списка инициализации и resize меняют список
+// до того, как допишут его до конца.
+
+static_assert(noexcept(std::declval<List<int>&>().swap(std::declval<List<int>&>())));
+static_assert(noexcept(List<int>(std::declval<List<int>>())));
+static_assert(noexcept(std::declval<List<int>&>() = std::declval<List<int>>()));
+
+TEST_CASE("гарантии: перемещение не копирует элементы") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> source;
+    source.addLast(Thrower{1});
+    source.addLast(Thrower{2});
+
+    List<Thrower> target;
+    target.addLast(Thrower{9});
+
+    const int alive = Thrower::alive;
+    Thrower::copies = 0;
+
+    List<Thrower> moved(std::move(source));
+    CHECK(Thrower::copies == 0);
+    CHECK(source.getSize() == 0);
+    REQUIRE(moved.getSize() == 2);
+    CHECK(moved.getValue(0).value == 1);
+    CHECK(moved.getValue(1).value == 2);
+
+    target = std::move(moved);
+    CHECK(Thrower::copies == 0);
+    CHECK(moved.getSize() == 0);
+    REQUIRE(target.getSize() == 2);
+    CHECK(target.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive - 1);
+}
+
+TEST_CASE("гарантии: addLast строгая, если копирование бросило") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    list.addLast(Thrower{2});
+    Thrower incoming{3};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.addLast(incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 2);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: addStart строгая, если копирование бросило") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    Thrower incoming{0};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.addStart(incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: insert строгая и при исключении из T, и за границей") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    list.addLast(Thrower{3});
+    Thrower incoming{2};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.insert(1, incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 3);
+    CHECK(Thrower::alive == alive);
+
+    Thrower::copiesLeft = -1;
+    CHECK_THROWS_AS(list.insert(5, incoming), std::out_of_range);
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 3);
+}
+
+TEST_CASE("гарантии: копирующий конструктор не портит источник") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> source;
+    source.addLast(Thrower{1});
+    source.addLast(Thrower{2});
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(List<Thrower> copy(source), std::runtime_error);
+
+    REQUIRE(source.getSize() == 2);
+    CHECK(source.getValue(0).value == 1);
+    CHECK(source.getValue(1).value == 2);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: копирующее присваивание не трогает приёмник") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> target;
+    target.addLast(Thrower{9});
+    List<Thrower> source;
+    source.addLast(Thrower{1});
+    source.addLast(Thrower{2});
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(target = source, std::runtime_error);
+
+    REQUIRE(target.getSize() == 1);
+    CHECK(target.getValue(0).value == 9);
+    REQUIRE(source.getSize() == 2);
+    CHECK(source.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: emplaceLast строгая, если конструктор узла бросил") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.emplaceLast(Thrower{4}), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: setValue не меняет элемент, если присваивание бросило сразу") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    Thrower incoming{5};
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.setValue(0, incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: assign оставляет живой список без прежнего содержимого") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    list.addLast(Thrower{2});
+    Thrower filler{7};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(list.assign(3, filler), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 7);
+    CHECK(Thrower::alive == alive - 1);
+
+    Thrower::copiesLeft = -1;
+    list.addLast(Thrower{8});
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(1).value == 8);
+}
+
+TEST_CASE("гарантии: присваивание списка инициализации оставляет живой список") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{9});
+    list.addLast(Thrower{8});
+    Thrower first{1};
+    Thrower second{2};
+    Thrower third{3};
+    const int alive = Thrower::alive;
+
+    // Три копии уйдут в сам список инициализации, четвёртая — в первый
+    // addLast, пятая бросит.
+    Thrower::copiesLeft = 4;
+    auto assign = [&] { list = {first, second, third}; };
+    CHECK_THROWS_AS(assign(), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive - 1);
+
+    Thrower::copiesLeft = -1;
+    list.addLast(Thrower{4});
+    REQUIRE(list.getSize() == 2);
+}
+
+TEST_CASE("гарантии: resize дописывает, пока копирование не бросит") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    Thrower filler{8};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(list.resize(4, filler), std::runtime_error);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 8);
+    CHECK(Thrower::alive == alive + 1);
+
+    Thrower::copiesLeft = -1;
+    list.addLast(Thrower{9});
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(2).value == 9);
 }
