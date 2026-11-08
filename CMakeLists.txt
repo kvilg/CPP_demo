@@ -40,6 +40,7 @@ add_subdirectory(Linked)
 
 # Свой exe и свой main.cpp. На Linked, qt и common не ссылается.
 add_subdirectory(FrameSync)
+add_subdirectory(CallbackScheduler)
 
 # qt/ собираются, если Qt нашёлся (поиск в cmake/qt.cmake).
 # Отдельного флага нет: есть Qt — есть сборка.
