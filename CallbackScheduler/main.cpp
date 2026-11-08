@@ -76,12 +76,9 @@ private:
 
 
 
-std::mutex mx;
 void do_magick(){
-    std::lock_guard lg(mx);
-    static int id = 0;
-    std::cout<<" id = " <<id <<"\n";
-    id++;
+    static std::atomic<int> id{0};
+    std::cout << " id = " << id++ << "\n";
 }
 
 
