@@ -96,7 +96,7 @@ if ($Run) {
 
     if (-not $exe) {
         Write-Host "$Run.exe не найден в build/$Preset" -ForegroundColor Red
-        Write-Host "Доступные цели: Linked, Linked_tests, QtWidgetsDemo, TcpServer" -ForegroundColor DarkGray
+        Write-Host "Доступные цели: Linked, Linked_tests, FrameSync, QtWidgetsDemo, TcpServer" -ForegroundColor DarkGray
         exit 1
     }
 
