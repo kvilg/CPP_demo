@@ -30,8 +30,6 @@ class CallbackScheduler
 public:
     CallbackScheduler()
     {
-        if (threadDoWork.joinable())        // защита от повторного запуска
-            threadDoWork.join();
         threadDoWork = std::thread(&CallbackScheduler::doWork, this);
     }
 
