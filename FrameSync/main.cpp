@@ -68,7 +68,10 @@ void processFrames()
         std::shared_ptr<IFrame> frame;
         {
             std::unique_lock<std::mutex> lk(mx);
-            cv.wait(lk,[]{return !frameQ.empty();});
+            cv.wait(lk, [] { return !frameQ.empty() || stopFlag.load(); });
+            if (frameQ.empty()) {
+                break;
+            }
             frame = frameQ.front();
             frameQ.pop();
         }
@@ -93,7 +96,11 @@ int main() {
     }
 
     std::this_thread::sleep_for(std::chrono::seconds(2));
-    stopFlag = true;
+    {
+        std::lock_guard<std::mutex> lk(mx);
+        stopFlag = true;
+    }
+    cv.notify_all();
 
     for (auto& t : threads) {
         t.join();
