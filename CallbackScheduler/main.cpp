@@ -46,11 +46,15 @@ public:
     void Schedule(std::function<void()> callback, TimePoint when)
     {
         Call call(callback,when);
-        callQ.push(call);
+        {
+            std::lock_guard<std::mutex> lk(mtx);
+            callQ.push(call);
+        }
         cv.notify_one();
     }
 
     bool callEmpty(){
+        std::lock_guard<std::mutex> lk(mtx);
         return callQ.empty();
     }
 private:
