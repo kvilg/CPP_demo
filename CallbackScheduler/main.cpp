@@ -35,7 +35,12 @@ public:
 
     ~CallbackScheduler()
     {
-        threadDoWork.detach();
+        {
+            std::lock_guard<std::mutex> lk(mtx);
+            stop = true;
+        }
+        cv.notify_all();
+        threadDoWork.join();
     }
 
     void Schedule(std::function<void()> callback, TimePoint when)
@@ -53,18 +58,25 @@ private:
     std::thread threadDoWork;
     std::mutex mtx;
     std::condition_variable cv;
+    bool stop = false;
 
     void doWork(){
         while (true){
             std::unique_lock<std::mutex> ul(mtx);
             cv.wait(ul,[this] {
-                return !callQ.empty();
+                return !callQ.empty() || stop;
             });
+            if (stop) {
+                break;
+            }
 
             auto when = callQ.top().when;
             cv.wait_until(ul, when, [this, when] {
-                return !callQ.empty() && when < std::chrono::system_clock::now();
+                return stop || (!callQ.empty() && when < std::chrono::system_clock::now());
             });
+            if (stop) {
+                break;
+            }
             callQ.top().callback();
             callQ.pop();
             ul.unlock();
