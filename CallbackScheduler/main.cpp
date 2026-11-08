@@ -76,10 +76,13 @@ private:
 
             auto when = callQ.top().when;
             cv.wait_until(ul, when, [this, when] {
-                return stop || (!callQ.empty() && when < std::chrono::system_clock::now());
+                return stop || callQ.empty() || callQ.top().when < when;
             });
             if (stop) {
                 break;
+            }
+            if (callQ.empty() || callQ.top().when < when) {
+                continue;
             }
             std::function<void()> callback = callQ.top().callback;
             callQ.pop();
