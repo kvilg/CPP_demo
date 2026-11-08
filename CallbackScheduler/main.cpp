@@ -81,9 +81,10 @@ private:
             if (stop) {
                 break;
             }
-            callQ.top().callback();
+            std::function<void()> callback = callQ.top().callback;
             callQ.pop();
             ul.unlock();
+            callback();
         }
     }
 };
@@ -102,9 +103,9 @@ int main() {
     std::condition_variable cv;
     CallbackScheduler callbackScheduler;
 
-    auto s = std::chrono::seconds(1);
+    auto s = std::chrono::seconds(19);
     callbackScheduler.Schedule(do_magick,std::chrono::system_clock::now() + s);
-    s = std::chrono::seconds(19);
+    s = std::chrono::seconds(1);
     callbackScheduler.Schedule(do_magick,std::chrono::system_clock::now() + s);
     s = std::chrono::seconds(4);
     callbackScheduler.Schedule(do_magick,std::chrono::system_clock::now() + s);
