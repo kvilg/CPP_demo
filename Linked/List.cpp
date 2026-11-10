@@ -22,6 +22,11 @@ class List<T>::Node {
 public:
     explicit Node(const T& value);
 
+    template <class... Args>
+    requires std::constructible_from<T, Args...>
+    explicit Node(Args&&... args)
+            : m_value(std::forward<Args>(args)...) {}
+
     ~Node() = default;
 
     void setValue(const T& value);
@@ -415,28 +420,32 @@ void List<T>::removeValue(const T& value)
 
 template <ListElement T>
 void List<T>::reverse() {
-    for (size_t i = 0;i < getSize()/2; i++) {
-        Node *node_strat = m_head;
-        Node *node_tail = m_tail;
-
-        T def = node_strat->getValue();
-        node_strat->setValue(node_tail->getValue());
-        node_tail->setValue(def);
+    Node *cur = m_head;
+    while (cur != nullptr) {
+        Node *oldNext = cur->getNext();
+        cur->setNext(cur->getPrev());
+        cur->setPrev(oldNext);
+        cur = oldNext;
     }
+    std::swap(m_head, m_tail);
 }
 
 template <ListElement T>
 void List<T>::sort()
     requires std::totally_ordered<T>
 {
-    for (size_t i = 0; i < getSize()-i; ++i) {
-        Node *node = m_head;
+    const size_t n = getSize();
+    if (n < 2) return;
+
+    for (size_t i = 0; i + 1 < n; ++i) {
+        Node *node      = m_head;
         Node *node_next = m_head->getNext();
-        for (size_t j = 0; j < getSize()-1; ++j) {
-            if(node->getValue() > node_next->getValue()){
-                T def = node->getValue();
+
+        for (size_t j = 0; j + 1 < n; ++j) {
+            if (node->getValue() > node_next->getValue()) {
+                T tmp = node->getValue();
                 node->setValue(node_next->getValue());
-                node_next->setValue(def);
+                node_next->setValue(tmp);
             }
             node = node->getNext();
             node_next = node_next->getNext();
@@ -482,20 +491,17 @@ void List<T>::assign(std::initializer_list<T> values) {
 
 template <ListElement T>
 void List<T>::resize(std::size_t count)
-    requires std::default_initializable<T>
+requires std::default_initializable<T>
 {
-    if(count == 0){
-        clear();
-    }
-    size_t size = getSize();
-    if(size > count) {
-        for (size_t i = 0; i < size - count; ++i) {
+    const std::size_t size = getSize();
+
+    if (size > count) {
+        for (std::size_t i = 0; i < size - count; ++i) {
             removeLast();
         }
-    }
-    if(size < count) {
-        for (size_t i = 0; i < count - size; i++) {
-            addLast(0);
+    } else if (size < count) {
+        for (std::size_t i = 0; i < count - size; ++i) {
+            emplaceLast();
         }
     }
 }
@@ -520,7 +526,7 @@ void List<T>::resize(std::size_t count, const T& value) {
 
 template <ListElement T>
 void List<T>::unique()
-    requires std::equality_comparable<T>
+requires std::equality_comparable<T>
 {
     if (m_head == nullptr)
         return;
@@ -529,12 +535,15 @@ void List<T>::unique()
     while (node->getNext() != nullptr) {
         Node* next = node->getNext();
         if (next->getValue() == node->getValue()) {
-            node->setNext(next->getNext());
-            next->setPrev(node);
+            Node* after = next->getNext();
+            node->setNext(after);
+            if (after != nullptr)
+                after->setPrev(node);
+            else
+                m_tail = node;
+
             delete next;
             --m_size;
-            if (next == m_tail)
-                m_tail = node;
         } else {
             node = next;
         }
@@ -543,7 +552,7 @@ void List<T>::unique()
 
 template <ListElement T>
 void List<T>::merge(List& other)
-    requires std::totally_ordered<T>
+requires std::totally_ordered<T>
 {
     if (this == &other || other.m_head == nullptr) {
         return;
@@ -566,6 +575,7 @@ void List<T>::merge(List& other)
     Node* new_tail = nullptr;
 
     auto append = [&](Node* n) {
+        n->setPrev(new_tail);
         if (new_head == nullptr) {
             new_head = new_tail = n;
         } else {
@@ -608,18 +618,19 @@ void List<T>::merge(List& other)
 
 template <ListElement T>
 template <typename... Args>
-    requires std::constructible_from<T, Args...>
+requires std::constructible_from<T, Args...>
 T& List<T>::emplaceLast(Args&&... args) {
     Node* node = new Node(std::forward<Args>(args)...);
+    node->setPrev(m_tail);
+    node->setNext(nullptr);
 
-    if (m_tail != nullptr) {
+    if (m_tail != nullptr)
         m_tail->setNext(node);
-    } else {
+    else
         m_head = node;
-    }
+
     m_tail = node;
     ++m_size;
-
     return node->getValue();
 }
 
