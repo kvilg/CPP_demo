@@ -12,10 +12,20 @@
 // Определение Node. В List.h от него осталось только `class Node;` —
 // наружу утекает лишь имя, а устройство узла (значение и две ссылки)
 // видно только здесь.
+
+////////////////////////////////////////////////////////////////////////////////
+/// Node
+////////////////////////////////////////////////////////////////////////////////
+
 template <ListElement T>
 class List<T>::Node {
 public:
     explicit Node(const T& value);
+
+    template <class... Args>
+    requires std::constructible_from<T, Args...>
+    explicit Node(Args&&... args)
+            : m_value(std::forward<Args>(args)...) {}
 
     ~Node() = default;
 
@@ -40,17 +50,20 @@ private:
 };
 
 template <ListElement T>
+List<T>::Node::Node(const T& value) : m_value(value) {}
+
+template <ListElement T>
 void List<T>::Node::setValue(const T& value) {
     m_value = value;
 }
 
 template <ListElement T>
-T& List<T>::Node::getValue() {
+const T& List<T>::Node::getValue() const {
     return m_value;
 }
 
 template <ListElement T>
-const T& List<T>::Node::getValue() const {
+T& List<T>::Node::getValue() {
     return m_value;
 }
 
@@ -74,17 +87,9 @@ typename List<T>::Node* List<T>::Node::getPrev() const {
     return m_prev;
 }
 
-template <ListElement T>
-List<T>::Node::Node(const T& value) : m_value(value) {}
-
-template <ListElement T>
-typename List<T>::Node* List<T>::nodeAt(std::size_t index) {
-    Node* cur = m_head;
-    for (std::size_t i = 0; i < index && cur != nullptr; ++i) {
-        cur = cur->getNext();
-    }
-    return cur;
-}
+////////////////////////////////////////////////////////////////////////////////
+/// List
+////////////////////////////////////////////////////////////////////////////////
 
 template <ListElement T>
 List<T>::List(const List& other) {
@@ -164,14 +169,6 @@ void List<T>::swap(List& other) noexcept {
     std::swap(m_head, other.m_head);
     std::swap(m_tail, other.m_tail);
 }
-
-// --- упражнения: заглушки ---
-//
-// Реализовать и довести до зелёного тесты "exercise: ..." ниже.
-//
-// (void) перед throw — чтобы -Wunused-parameter с -Werror не завалил
-// сборку на неиспользованном аргументе. Когда напишешь тело, эти строки
-// удаляются.
 
 template <ListElement T>
 List<T>::List(List&& other) noexcept
@@ -327,7 +324,6 @@ void List<T>::removeAt(std::size_t index) {
 
 template <ListElement T>
 const T& List<T>::at(std::size_t index) const {
-    (void)index;
     if(index >= m_size){
         throw std::out_of_range("List::at out_of_range");
     }
@@ -424,28 +420,32 @@ void List<T>::removeValue(const T& value)
 
 template <ListElement T>
 void List<T>::reverse() {
-    for (size_t i = 0;i < getSize()/2; i++) {
-        Node *node_strat = m_head;
-        Node *node_tail = m_tail;
-
-        T def = node_strat->getValue();
-        node_strat->setValue(node_tail->getValue());
-        node_tail->setValue(def);
+    Node *cur = m_head;
+    while (cur != nullptr) {
+        Node *oldNext = cur->getNext();
+        cur->setNext(cur->getPrev());
+        cur->setPrev(oldNext);
+        cur = oldNext;
     }
+    std::swap(m_head, m_tail);
 }
 
 template <ListElement T>
 void List<T>::sort()
     requires std::totally_ordered<T>
 {
-    for (size_t i = 0; i < getSize()-i; ++i) {
-        Node *node = m_head;
+    const size_t n = getSize();
+    if (n < 2) return;
+
+    for (size_t i = 0; i + 1 < n; ++i) {
+        Node *node      = m_head;
         Node *node_next = m_head->getNext();
-        for (size_t j = 0; j < getSize()-1; ++j) {
-            if(node->getValue() > node_next->getValue()){
-                T def = node->getValue();
+
+        for (size_t j = 0; j + 1 < n; ++j) {
+            if (node->getValue() > node_next->getValue()) {
+                T tmp = node->getValue();
                 node->setValue(node_next->getValue());
-                node_next->setValue(def);
+                node_next->setValue(tmp);
             }
             node = node->getNext();
             node_next = node_next->getNext();
@@ -491,20 +491,17 @@ void List<T>::assign(std::initializer_list<T> values) {
 
 template <ListElement T>
 void List<T>::resize(std::size_t count)
-    requires std::default_initializable<T>
+requires std::default_initializable<T>
 {
-    if(count == 0){
-        clear();
-    }
-    size_t size = getSize();
-    if(size > count) {
-        for (size_t i = 0; i < size - count; ++i) {
+    const std::size_t size = getSize();
+
+    if (size > count) {
+        for (std::size_t i = 0; i < size - count; ++i) {
             removeLast();
         }
-    }
-    if(size < count) {
-        for (size_t i = 0; i < count - size; i++) {
-            addLast(0);
+    } else if (size < count) {
+        for (std::size_t i = 0; i < count - size; ++i) {
+            emplaceLast();
         }
     }
 }
@@ -529,7 +526,7 @@ void List<T>::resize(std::size_t count, const T& value) {
 
 template <ListElement T>
 void List<T>::unique()
-    requires std::equality_comparable<T>
+requires std::equality_comparable<T>
 {
     if (m_head == nullptr)
         return;
@@ -538,12 +535,15 @@ void List<T>::unique()
     while (node->getNext() != nullptr) {
         Node* next = node->getNext();
         if (next->getValue() == node->getValue()) {
-            node->setNext(next->getNext());
-            next->setPrev(node);
+            Node* after = next->getNext();
+            node->setNext(after);
+            if (after != nullptr)
+                after->setPrev(node);
+            else
+                m_tail = node;
+
             delete next;
             --m_size;
-            if (next == m_tail)
-                m_tail = node;
         } else {
             node = next;
         }
@@ -552,7 +552,7 @@ void List<T>::unique()
 
 template <ListElement T>
 void List<T>::merge(List& other)
-    requires std::totally_ordered<T>
+requires std::totally_ordered<T>
 {
     if (this == &other || other.m_head == nullptr) {
         return;
@@ -575,6 +575,7 @@ void List<T>::merge(List& other)
     Node* new_tail = nullptr;
 
     auto append = [&](Node* n) {
+        n->setPrev(new_tail);
         if (new_head == nullptr) {
             new_head = new_tail = n;
         } else {
@@ -617,18 +618,19 @@ void List<T>::merge(List& other)
 
 template <ListElement T>
 template <typename... Args>
-    requires std::constructible_from<T, Args...>
+requires std::constructible_from<T, Args...>
 T& List<T>::emplaceLast(Args&&... args) {
     Node* node = new Node(std::forward<Args>(args)...);
+    node->setPrev(m_tail);
+    node->setNext(nullptr);
 
-    if (m_tail != nullptr) {
+    if (m_tail != nullptr)
         m_tail->setNext(node);
-    } else {
+    else
         m_head = node;
-    }
+
     m_tail = node;
     ++m_size;
-
     return node->getValue();
 }
 
@@ -648,11 +650,6 @@ T& List<T>::emplaceStart(Args&&... args) {
 
     return node->getValue();
 }
-
-// --- итератор ---
-//
-// Конструктор настоящий, он тут ничего не решает. Всё остальное —
-// заглушки, и это и есть упражнение.
 
 template <ListElement T>
 List<T>::Iterator::Iterator(Node* node) : m_node(node) {}
@@ -708,15 +705,82 @@ typename List<T>::Iterator List<T>::end() {
     return Iterator(nullptr);
 }
 
+template <ListElement T>
+typename List<T>::Node* List<T>::nodeAt(std::size_t index) {
+    Node* cur = m_head;
+    for (std::size_t i = 0; i < index && cur != nullptr; ++i) {
+        cur = cur->getNext();
+    }
+    return cur;
+}
+
 template class List<int>;
 template class List<double>;
+
+struct ResizeDefaultValue {
+    int value = 42;
+    int extra = 0;
+    inline static int copies = 0;
+
+    ResizeDefaultValue() = default;
+    ResizeDefaultValue(int value) : value(value) {}
+    ResizeDefaultValue(int value, int extra) : value(value), extra(extra) {}
+    ResizeDefaultValue(const ResizeDefaultValue& other) : value(other.value), extra(other.extra) {
+        ++copies;
+    }
+    ResizeDefaultValue& operator=(const ResizeDefaultValue&) = default;
+
+    auto operator<=>(const ResizeDefaultValue&) const = default;
+};
+
+// Бросает из копирования и присваивания, когда copiesLeft дошёл до нуля.
+// copiesLeft < 0 — не бросать. Счётчик alive ловит утечку узла.
+struct Thrower {
+    int value = 0;
+    inline static int alive = 0;
+    inline static int copies = 0;
+    inline static int copiesLeft = -1;
+
+    explicit Thrower(int value) : value(value) { ++alive; }
+
+    Thrower(const Thrower& other) : value(other.value) {
+        if (copiesLeft == 0) {
+            throw std::runtime_error("Thrower copy");
+        }
+        if (copiesLeft > 0) {
+            --copiesLeft;
+        }
+        ++copies;
+        ++alive;
+    }
+
+    Thrower& operator=(const Thrower& other) {
+        if (copiesLeft == 0) {
+            throw std::runtime_error("Thrower assign");
+        }
+        if (copiesLeft > 0) {
+            --copiesLeft;
+        }
+        value = other.value;
+        ++copies;
+        return *this;
+    }
+
+    ~Thrower() { --alive; }
+
+    auto operator<=>(const Thrower&) const = default;
+};
+
+#ifndef DOCTEST_CONFIG_DISABLE
+template class List<ResizeDefaultValue>;
+template class List<Thrower>;
+#endif
 // --- тесты ---
 //
 // Лежат рядом с реализацией: так задуман doctest. В цели Linked они
 // вырезаются препроцессором (DOCTEST_CONFIG_DISABLE), в бинарник не
 // попадают; цель Linked_tests собирает этот же файл с тестами.
 //
-// Проверяется только List<int>: выше явно инстанцирован лишь он.
 // Доступ к приватному Node у TEST_CASE нет — это свободные функции,
 // а не члены класса; для тестов на внутренности нужен friend в List.h.
 
@@ -962,14 +1026,6 @@ TEST_CASE("список держит много элементов в прави
     CHECK(list.getValue(50) == 50);
     CHECK(list.getValue(99) == 99);
 }
-
-// --- упражнения: тесты, которые должны стать зелёными ---
-//
-// Сейчас они падают: методы объявлены, но не реализованы. Это и есть
-// задание — реализовать и добиться зелёного.
-//
-// Только эти:    ctest --preset debug -R exercise
-// Только готовые: ctest --preset debug -E exercise
 
 TEST_CASE("exercise: isEmpty") {
     List<int> list;
@@ -1304,6 +1360,35 @@ TEST_CASE("exercise: reverse разворачивает порядок") {
     CHECK(list.getValue(2) == 1);
 }
 
+TEST_CASE("exercise: reverse разворачивает четыре элемента") {
+    List<int> list{1, 2, 3, 4};
+
+    list.reverse();
+
+    REQUIRE(list.getSize() == 4);
+    CHECK(list.getValue(0) == 4);
+    CHECK(list.getValue(1) == 3);
+    CHECK(list.getValue(2) == 2);
+    CHECK(list.getValue(3) == 1);
+}
+
+TEST_CASE("exercise: reverse переставляет узлы, а не значения") {
+    List<int> list{1, 2, 3};
+    auto it = list.begin();
+    int* first = &*it;
+    ++it;
+    ++it;
+    int* last = &*it;
+
+    list.reverse();
+
+    auto reversed = list.begin();
+    CHECK(&*reversed == last);
+    ++reversed;
+    ++reversed;
+    CHECK(&*reversed == first);
+}
+
 TEST_CASE("exercise: reverse переставляет и голову, и хвост") {
     List<int> list;
     list.addLast(1);
@@ -1347,6 +1432,18 @@ TEST_CASE("exercise: sort упорядочивает элементы") {
     CHECK(list.getValue(0) == 1);
     CHECK(list.getValue(1) == 2);
     CHECK(list.getValue(2) == 3);
+}
+
+TEST_CASE("exercise: sort упорядочивает четыре элемента") {
+    List<int> list{4, 3, 2, 1};
+
+    list.sort();
+
+    REQUIRE(list.getSize() == 4);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 2);
+    CHECK(list.getValue(2) == 3);
+    CHECK(list.getValue(3) == 4);
 }
 
 TEST_CASE("exercise: sort оставляет голову и хвост согласованными") {
@@ -1483,6 +1580,18 @@ TEST_CASE("exercise: assign из списка инициализации") {
     CHECK(list.getValue(2) == 3);
 }
 
+TEST_CASE("exercise: assign сохраняет значение, если оно ссылается на элемент списка") {
+    List<int> list{7, 8, 9};
+    const int& value = list.getStart();
+
+    list.assign(3, value);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0) == 7);
+    CHECK(list.getValue(1) == 7);
+    CHECK(list.getValue(2) == 7);
+}
+
 TEST_CASE("exercise: assign нулевой длины очищает список") {
     List<int> list;
     list.addLast(1);
@@ -1519,6 +1628,18 @@ TEST_CASE("exercise: resize удлиняет значением по умолч�
     CHECK(list.getValue(0) == 1);
     CHECK(list.getValue(1) == 0);
     CHECK(list.getValue(2) == 0);
+}
+
+TEST_CASE("exercise: resize без значения добавляет T по умолчанию") {
+    List<ResizeDefaultValue> list;
+    list.addLast(ResizeDefaultValue{7});
+
+    list.resize(3);
+
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(0).value == 7);
+    CHECK(list.getValue(1).value == 42);
+    CHECK(list.getValue(2).value == 42);
 }
 
 TEST_CASE("exercise: resize удлиняет заданным значением") {
@@ -1563,6 +1684,18 @@ TEST_CASE("exercise: unique убирает подряд идущие дубли�
     CHECK(list.getValue(2) == 1);
 }
 
+TEST_CASE("exercise: unique сохраняет ссылки назад после удаления дубликатов") {
+    List<int> list{1, 1, 2, 3};
+    int* first = &*list.begin();
+
+    list.unique();
+
+    auto it = list.begin();
+    ++it;
+    --it;
+    CHECK(&*it == first);
+}
+
 TEST_CASE("exercise: unique на пустом и без дубликатов") {
     List<int> empty;
     empty.unique();
@@ -1596,6 +1729,20 @@ TEST_CASE("exercise: merge сливает два отсортированных 
 
     // источник опустошается: узлы перецеплены, а не скопированы
     CHECK(b.getSize() == 0);
+}
+
+TEST_CASE("exercise: merge сохраняет ссылки назад") {
+    List<int> a{1, 3};
+    List<int> b{2, 4};
+
+    a.merge(b);
+
+    auto it = a.begin();
+    ++it;
+    ++it;
+    CHECK(*it == 3);
+    --it;
+    CHECK(*it == 2);
 }
 
 TEST_CASE("exercise: merge с пустым списком") {
@@ -1632,6 +1779,53 @@ TEST_CASE("exercise: emplaceLast и emplaceStart") {
     // возвращается ссылка на сам элемент, а не копия
     last = 20;
     CHECK(list.getValue(1) == 20);
+}
+
+TEST_CASE("exercise: emplaceLast конструирует элемент из переданных аргументов") {
+    List<ResizeDefaultValue> list;
+    ResizeDefaultValue::copies = 0;
+
+    ResizeDefaultValue& value = list.emplaceLast(7);
+
+    CHECK(value.value == 7);
+    CHECK(ResizeDefaultValue::copies == 0);
+}
+
+TEST_CASE("exercise: emplaceLast с несколькими аргументами конструктора") {
+    ResizeDefaultValue value(7, 42);
+    CHECK(value.value == 7);
+    CHECK(value.extra == 42);
+
+    // List<ResizeDefaultValue> list;
+    // ResizeDefaultValue& emplaced = list.emplaceLast(7, 42);
+    // CHECK(emplaced.value == 7);
+    // CHECK(emplaced.extra == 42);
+}
+
+TEST_CASE("exercise: emplaceLast связывает новый узел с предыдущим хвостом") {
+    List<int> list;
+    list.emplaceLast(1);
+    list.emplaceLast(2);
+
+    list.removeLast();
+    list.addLast(3);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 3);
+}
+
+TEST_CASE("exercise: emplaceStart задаёт обратную ссылку для removeLast") {
+    List<int> list;
+    list.emplaceLast(2);
+    list.emplaceStart(1);
+
+    list.removeLast();
+    list.addLast(3);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0) == 1);
+    CHECK(list.getValue(1) == 3);
 }
 
 // --- упражнения: итератор ---
@@ -1702,6 +1896,15 @@ TEST_CASE("exercise: итератор ходит назад") {
     const int before = *(it--);
     CHECK(before == 2);
     CHECK(*it == 1);
+}
+
+TEST_CASE("exercise: декремент end приводит к последнему элементу") {
+    List<int> list{1, 2, 3};
+    auto it = list.end();
+
+    --it;
+
+    CHECK(*it == 3);
 }
 
 TEST_CASE("exercise: через итератор можно менять элемент") {
@@ -1818,4 +2021,244 @@ TEST_CASE("exercise: свободный swap с пустым списком") {
     empty.addLast(6);
     CHECK(filled.getValue(0) == 5);
     CHECK(empty.getValue(1) == 6);
+}
+
+// --- гарантии исключений ---
+//
+// Три уровня, если копирование или присваивание T бросает. Деструктор T
+// считаем небросающим: из noexcept-операции такое исключение завершит программу.
+//
+// 1. nothrow. swap, конструктор перемещения и перемещающее присваивание не
+// бросают: узлы перецепляются, элементы не копируются.
+//
+// 2. Строгая. Исключение — и список как до вызова, лишнего элемента нет.
+// addLast, addStart, insert и emplace* создают узел до вцепления.
+// Копирование и копирующее присваивание собирают копию отдельно и
+// обменивают её через swap. setValue добавляет только то, что обещает
+// присваивание самого T.
+//
+// 3. Базовая. Список после исключения живой: размер сходится с узлами,
+// вставка дальше работает, утечки нет. Старое содержимое не обещано.
+// assign, присваивание из списка инициализации и resize меняют список
+// до того, как допишут его до конца.
+
+static_assert(noexcept(std::declval<List<int>&>().swap(std::declval<List<int>&>())));
+static_assert(noexcept(List<int>(std::declval<List<int>>())));
+static_assert(noexcept(std::declval<List<int>&>() = std::declval<List<int>>()));
+
+TEST_CASE("гарантии: перемещение не копирует элементы") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> source;
+    source.addLast(Thrower{1});
+    source.addLast(Thrower{2});
+
+    List<Thrower> target;
+    target.addLast(Thrower{9});
+
+    const int alive = Thrower::alive;
+    Thrower::copies = 0;
+
+    List<Thrower> moved(std::move(source));
+    CHECK(Thrower::copies == 0);
+    CHECK(source.getSize() == 0);
+    REQUIRE(moved.getSize() == 2);
+    CHECK(moved.getValue(0).value == 1);
+    CHECK(moved.getValue(1).value == 2);
+
+    target = std::move(moved);
+    CHECK(Thrower::copies == 0);
+    CHECK(moved.getSize() == 0);
+    REQUIRE(target.getSize() == 2);
+    CHECK(target.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive - 1);
+}
+
+TEST_CASE("гарантии: addLast строгая, если копирование бросило") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    list.addLast(Thrower{2});
+    Thrower incoming{3};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.addLast(incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 2);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: addStart строгая, если копирование бросило") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    Thrower incoming{0};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.addStart(incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: insert строгая и при исключении из T, и за границей") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    list.addLast(Thrower{3});
+    Thrower incoming{2};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.insert(1, incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 3);
+    CHECK(Thrower::alive == alive);
+
+    Thrower::copiesLeft = -1;
+    CHECK_THROWS_AS(list.insert(5, incoming), std::out_of_range);
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 3);
+}
+
+TEST_CASE("гарантии: копирующий конструктор не портит источник") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> source;
+    source.addLast(Thrower{1});
+    source.addLast(Thrower{2});
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(List<Thrower> copy(source), std::runtime_error);
+
+    REQUIRE(source.getSize() == 2);
+    CHECK(source.getValue(0).value == 1);
+    CHECK(source.getValue(1).value == 2);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: копирующее присваивание не трогает приёмник") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> target;
+    target.addLast(Thrower{9});
+    List<Thrower> source;
+    source.addLast(Thrower{1});
+    source.addLast(Thrower{2});
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(target = source, std::runtime_error);
+
+    REQUIRE(target.getSize() == 1);
+    CHECK(target.getValue(0).value == 9);
+    REQUIRE(source.getSize() == 2);
+    CHECK(source.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: emplaceLast строгая, если конструктор узла бросил") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.emplaceLast(Thrower{4}), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: setValue не меняет элемент, если присваивание бросило сразу") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    Thrower incoming{5};
+
+    Thrower::copiesLeft = 0;
+    CHECK_THROWS_AS(list.setValue(0, incoming), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    Thrower::copiesLeft = -1;
+}
+
+TEST_CASE("гарантии: assign оставляет живой список без прежнего содержимого") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    list.addLast(Thrower{2});
+    Thrower filler{7};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(list.assign(3, filler), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 7);
+    CHECK(Thrower::alive == alive - 1);
+
+    Thrower::copiesLeft = -1;
+    list.addLast(Thrower{8});
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(1).value == 8);
+}
+
+TEST_CASE("гарантии: присваивание списка инициализации оставляет живой список") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{9});
+    list.addLast(Thrower{8});
+    Thrower first{1};
+    Thrower second{2};
+    Thrower third{3};
+    const int alive = Thrower::alive;
+
+    // Три копии уйдут в сам список инициализации, четвёртая — в первый
+    // addLast, пятая бросит.
+    Thrower::copiesLeft = 4;
+    auto assign = [&] { list = {first, second, third}; };
+    CHECK_THROWS_AS(assign(), std::runtime_error);
+
+    REQUIRE(list.getSize() == 1);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(Thrower::alive == alive - 1);
+
+    Thrower::copiesLeft = -1;
+    list.addLast(Thrower{4});
+    REQUIRE(list.getSize() == 2);
+}
+
+TEST_CASE("гарантии: resize дописывает, пока копирование не бросит") {
+    Thrower::copiesLeft = -1;
+    List<Thrower> list;
+    list.addLast(Thrower{1});
+    Thrower filler{8};
+    const int alive = Thrower::alive;
+
+    Thrower::copiesLeft = 1;
+    CHECK_THROWS_AS(list.resize(4, filler), std::runtime_error);
+
+    REQUIRE(list.getSize() == 2);
+    CHECK(list.getValue(0).value == 1);
+    CHECK(list.getValue(1).value == 8);
+    CHECK(Thrower::alive == alive + 1);
+
+    Thrower::copiesLeft = -1;
+    list.addLast(Thrower{9});
+    REQUIRE(list.getSize() == 3);
+    CHECK(list.getValue(2).value == 9);
 }

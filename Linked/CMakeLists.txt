@@ -33,13 +33,7 @@ target_link_libraries(Linked PRIVATE
         project_console
         project_warnings)
 
-# --- демонстрация: цель, которая намеренно не линкуется ---
-#
-# main_double.cpp берёт List<double>, а в List.cpp инстанцирован только
-# List<int>. Компиляция пройдёт, линковка упадёт — это и надо показать.
-#
-# EXCLUDE_FROM_ALL обязателен: без него обычная сборка всего проекта
-# всегда была бы красной. Собирать руками и только её:
+# В обычную сборку не входит. Собрать отдельно:
 #     cmake --build --preset debug --target Linked_double
 add_executable(Linked_double EXCLUDE_FROM_ALL main_double.cpp
         List.cpp

@@ -11,6 +11,10 @@
     Собрать всё в конфигурации debug.
 
 .EXAMPLE
+    .\build.ps1 -Demo
+    Запустить связку: эмулятор в отдельном окне, затем регистратор.
+
+.EXAMPLE
     .\build.ps1 -Test
     Собрать и прогнать тесты.
 
@@ -31,6 +35,7 @@ param(
     [string]$Preset = "debug",
 
     [string]$Run,
+    [switch]$Demo,
     [switch]$Test,
     [switch]$Clean
 )
@@ -77,13 +82,21 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
+if ($Demo) {
+    # Цель run_demo объявлена в qt/CMakeLists.txt: поднимает эмулятор
+    # в отдельном окне и запускает регистратор
+    Write-Host "`nЗапускаю связку TcpServer + QtWidgetsDemo" -ForegroundColor Cyan
+    cmake --build --preset $Preset --target run_demo
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
 if ($Run) {
     $exe = Get-ChildItem -Path $buildDir -Filter "$Run.exe" -Recurse -File |
            Select-Object -First 1 -ExpandProperty FullName
 
     if (-not $exe) {
         Write-Host "$Run.exe не найден в build/$Preset" -ForegroundColor Red
-        Write-Host "Доступные цели: Linked, Linked_tests, QtWidgetsDemo, TcpServer" -ForegroundColor DarkGray
+        Write-Host "Доступные цели: Linked, Linked_tests, FrameSync, CallbackScheduler, QtWidgetsDemo, TcpServer" -ForegroundColor DarkGray
         exit 1
     }
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 4.0)
 
 project(CPP_demo
-        DESCRIPTION "Учебные проекты: двусвязный список и два демо на Qt"
+        DESCRIPTION "Учебные проекты: список, синхронизация кадров, демо на Qt"
         LANGUAGES CXX
 )
 
@@ -37,6 +37,10 @@ include(qt)
 enable_testing()
 
 add_subdirectory(Linked)
+
+# Свой exe и свой main.cpp. На Linked, qt и common не ссылается.
+add_subdirectory(FrameSync)
+add_subdirectory(CallbackScheduler)
 
 # qt/ собираются, если Qt нашёлся (поиск в cmake/qt.cmake).
 # Отдельного флага нет: есть Qt — есть сборка.

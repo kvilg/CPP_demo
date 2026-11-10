@@ -4,6 +4,7 @@
 #include <QColor>
 #include <QColorDialog>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
@@ -11,17 +12,84 @@
 #include <QPushButton>
 #include <QTcpSocket>
 
-// QtConsole.h переносит сообщения Qt из отладчика в консоль и печатает
-// их в UTF-8. Console.h при этом переключает саму консоль на UTF-8.
 #include "Console.h"
 #include "QtConsole.h"
 
+// Пустышка: Qt здесь собран без QT_NAMESPACE, макрос не делает ничего
+// (об этом же написано в RealTimePlot.h). Либо он стоит ради сборки с
+// пространством имён — и тогда это стоит написать, — либо шум который стоит удалить.
 QT_USE_NAMESPACE
+
+// --- чего здесь не хватает по заданию ---
+//
+// Для графического представления требуется набор стандартных
+// инструментов управления просмотром. Из четырёх есть один:
+//
+//   - масштабирование — нет, ни рамкой (setRubberBand), ни колесом;
+//   - толщина кривой — нет, хотя проводка готова: setCurveColor в
+//     RealTimePlot берёт текущее перо и сохраняет ширину, не хватает
+//     только pen.setWidth и контрола рядом с выбором цвета;
+//   - цвет кривой — есть.
+//
+// Амплитуды и периода в этом списке нет намеренно. Это параметры
+// генерации, и задаются они в эмуляторе — там для них и нужен
+// интерфейс, см. комментарий в TcpServer/src/main.cpp. Регистратор
+// рисует то, что пришло, и даёт разглядывать это мышкой; менять сам
+// сигнал он не должен.
+//
+// QLineEdit("1") с именем test ниже создаётся, кладётся в панель и
+// никуда не подключается — похоже, начатая заготовка под один из этих
+// контролов.
+//
+// Полная сверка с заданием — в qt/README.md.
+
+// --- упражнение: вынести окно в отдельный класс ---
+//
+// Всё, что написано ниже в main, должно переехать в
+// MainWindow : public QMainWindow — в новые src/MainWindow.h и
+// src/MainWindow.cpp:
+//
+//   - виджеты host, port, btn, log, plot, colorBtn и сокет s — в поля;
+//   - сборку layout'ов — в конструктор;
+//   - тела лямбд из QObject::connect — в приватные слоты;
+//   - curveColor — в поле;
+//   - resize(800, 500) — в конструктор, размер окна это дело окна.
+//
+// Здесь должно остаться только это:
+//
+//     int main(int argc, char* argv[]) {
+//         QApplication app(argc, argv);
+//         MainWindow w;
+//         w.show();
+//         return app.exec();
+//     }
+//
+// В объявлении класса нужен Q_OBJECT, иначе слотов не будет; AUTOMOC
+// для этого уже включён в qt/CMakeLists.txt. Новый .cpp дописать в
+// qt_add_executable. Пример такого класса лежит рядом — RealTimePlot.
+//
+// Пока не вынесено, помни: лямбды ниже захватывают [&], то есть ссылки
+// на локальные переменные main. Держится это только на том, что main не
+// выходит, пока крутится app.exec(). Вынесешь кусок в функцию, не сделав
+// его полем класса, — ссылки станут висячими.
 
 int main(int argc, char* argv[]) {
     qtlog::install();
 
     QApplication app(argc, argv);
+
+    // Путь внутрь ресурсов, а не в файловую систему: в CMakeLists указан
+    // PREFIX "/" и BASE resources, поэтому resources/images/app-icon.svg
+    // лежит под :/images/app-icon.svg. Иконка попадает в сам бинарник,
+    // рядом с программой ничего класть не нужно.
+    //
+    // Ставим на QApplication, а не на окно: так её получат и диалоги,
+    // например выбор цвета.
+    //
+    // SVG рисует подключаемый модуль qsvgicon, его раскладывает
+    // windeployqt. Если он не доедет, QIcon промолчит и иконки просто
+    // не будет — ошибки не покажут.
+    app.setWindowIcon(QIcon(":/images/app-icon.svg"));
 
     QMainWindow w;
     auto* central = new QWidget;
@@ -31,6 +99,8 @@ int main(int argc, char* argv[]) {
     auto* port = new QLineEdit("1234");
     auto* btn = new QPushButton("Подключиться");
     btn->setCursor(Qt::PointingHandCursor);
+    // ОШИБКА: этот виджет никуда не добавлен, на экране его нет.
+    // Родителя у него поэтому тоже нет — значит он и не будет удалён (утечка памяти).
     auto* log = new QPlainTextEdit;
     log->setReadOnly(true);
     log->setMaximumHeight(100);
@@ -44,19 +114,19 @@ int main(int argc, char* argv[]) {
     auto* plot = new RealTimePlot;
     lay->addWidget(plot, 1);
 
-    auto* btn_box = new QHBoxLayout;
+    auto* btnBox = new QHBoxLayout;
     auto* test = new QLineEdit("1");
 
-    lay->addLayout(btn_box);
+    lay->addLayout(btnBox);
 
     auto* colorLabel = new QLabel("Цвет");
     auto* colorBtn = new QPushButton("Выбрать...");
     colorBtn->setToolTip("Цвет кривой — нажми, чтобы выбрать");
     colorBtn->setCursor(Qt::PointingHandCursor);
 
-    btn_box->addWidget(colorLabel);
-    btn_box->addWidget(colorBtn);
-    btn_box->addWidget(test);
+    btnBox->addWidget(colorLabel);
+    btnBox->addWidget(colorBtn);
+    btnBox->addWidget(test);
 
     QColor curveColor = Qt::cyan;
     plot->setCurveColor(curveColor);
@@ -72,12 +142,33 @@ int main(int argc, char* argv[]) {
     QTcpSocket s;
     QObject::connect(&s, &QTcpSocket::connected, [&] { btn->setText("Отключиться"); });
     QObject::connect(&s, &QTcpSocket::disconnected, [&] { btn->setText("Подключиться"); });
+    // Ошибка подключения не показывается никак: кнопка вернула надпись,
+    // и всё. Не тот адрес, нет сервера, занят порт — пользователь видит
+    // только, что она моргнула. Просится s.errorString() — в log или
+    // в QMessageBox.
     QObject::connect(&s, &QTcpSocket::errorOccurred, [&] { btn->setText("Подключиться"); });
 
     QObject::connect(&s, &QTcpSocket::readyRead, [&] {
         const QByteArray data = s.readAll();
+
+        // ОШИБКА: в лог идёт сырой кусок вместе с переводом строки,
+        // который там уже есть, а appendPlainText добавляет свой —
+        // получаются пустые строки через одну.
         log->appendPlainText(QString::fromUtf8(data));
 
+        // ОШИБКА, и серьёзная: здесь предполагается, что в одном
+        // readyRead лежат целые строки. TCP этого не обещает — это
+        // поток байт, а не сообщений. Число 42\n может прийти двумя
+        // кусками: сначала 4, потом 2\n. Тогда toDouble успешно
+        // разберёт 4, потом 2, и на графике окажутся две неверные
+        // точки вместо одной верной. Без ошибки, молча.
+        //
+        // Не стреляет только потому, что шлётся пара байт в секунду и
+        // всё помещается в один пакет. Увеличь частоту — поедет.
+        //
+        // Чинится накоплением: держать непрочитанный хвост между
+        // вызовами и отдавать на разбор только то, что до последнего
+        // перевода строки.
         for (const QByteArray& line : data.split('\n')) {
             bool ok = false;
             double y = line.trimmed().toDouble(&ok);
@@ -93,6 +184,10 @@ int main(int argc, char* argv[]) {
         } else {
             log->clear();
             plot->reset();
+            // Порт нигде не проверяется: toUShort() на нечисловом
+            // вводе вернёт 0, и попытка уйдёт на нулевой порт. Упадёт
+            // она молча — см. обработчик errorOccurred выше. В Qt для
+            // ввода чисел есть QIntValidator.
             s.connectToHost(host->text(), port->text().toUShort());
         }
     });
